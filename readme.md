@@ -39,7 +39,8 @@ template:
       - name: "EVSCI Dummy Tariff"
         state: "1"
 ```
-    Select sensor.evsci_dummy_tariff during installation.
+    
+Select sensor.evsci_dummy_tariff during installation.
 
     In the configuration settings, set Limit Block 1 to your home's main power limit (e.g., 11000 W).
 
