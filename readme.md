@@ -40,90 +40,66 @@ template:
         state: "1"
 ```
     
-Select sensor.evsci_dummy_tariff during installation.
+*   Select `sensor.evsci_dummy_tariff` during installation.
+*   In the configuration settings, set **Limit Block 1** to your home's main power limit (e.g., 11000 W).
+*   You can ignore limits for Blocks 2-5.
 
-In the configuration settings, set Limit Block 1 to your home's main power limit (e.g., 11000 W).
+## 🚀 Charging Modes
 
-You can ignore limits for Blocks 2-5.
+*   **OFF:** Charging is disabled.
+*   **Dynamic:** The smartest mode. Charges as fast as possible but **strictly respects the current Tariff Block limit** to avoid penalty fees.
+*   **PV Only:** Charges **only** using excess solar energy.
+    *   Starts when excess power > 6A.
+    *   Pauses (0A) if clouds appear or house consumption rises.
+*   **Min + PV:** Always charges at minimum power (6A) from the grid to ensure progress, but adds excess solar power on top when available.
+*   **Max Power:** Charges at the maximum speed allowed by your **Main Fuse**.
+    *   *Warning:* This ignores Tariff Block limits and might incur grid fees, but ensures the fastest charge without tripping the physical fuse.
+*   **Schedule:** Works like *Dynamic*, but only within the time window you define (e.g., 22:00 - 06:00). Outside this window, charging is paused (0A).
 
-🚀 Charging Modes
+---
 
-OFF: Charging is disabled.
+## ⚙️ Installation
 
-Dynamic: The smartest mode. Charges as fast as possible but strictly respects the current Tariff Block limit to avoid penalty fees.
+### Via HACS (Recommended)
+1.  Open **HACS** -> **Integrations**.
+2.  Click the three dots in the top right corner -> **Custom repositories**.
+3.  Paste the URL of this repository.
+4.  Category: **Integration**.
+5.  Click **Add**, then search for "EV Smart Charging Integration" and install.
+6.  **Restart Home Assistant**.
 
-PV Only: Charges only using excess solar energy.
+### Manual Installation
+1.  Download the `evsci.zip` file (or clone the repo).
+2.  Copy the `custom_components/evsci` folder into your Home Assistant's `config/custom_components/` directory.
+3.  **Restart Home Assistant**.
 
-Starts when excess power > 6A.
+---
 
-Pauses (0A) if clouds appear or house consumption rises.
+## 🔧 Configuration
 
-Min + PV: Always charges at minimum power (6A) from the grid to ensure progress, but adds excess solar power on top when available.
+Go to **Settings** -> **Devices & Services** -> **Add Integration** -> **EV Smart Charging Integration**.
 
-Max Power: Charges at the maximum speed allowed by your Main Fuse.
-
-Warning: This ignores Tariff Block limits and might incur grid fees, but ensures the fastest charge without tripping the physical fuse.
-
-Schedule: Works like Dynamic, but only within the time window you define (e.g., 22:00 - 06:00). Outside this window, charging is paused (0A).
-
-⚙️ Installation
-Via HACS (Recommended)
-
-    Open HACS -> Integrations.
-
-    Click the three dots in the top right corner -> Custom repositories.
-
-    Paste the URL of this repository.
-
-    Category: Integration.
-
-    Click Add, then search for "EV Smart Charging Integration" and install.
-
-    Restart Home Assistant.
-
-Manual Installation
-
-    Download the evsci.zip file (or clone the repo).
-
-    Copy the custom_components/evsci folder into your Home Assistant's config/custom_components/ directory.
-
-    Restart Home Assistant.
-
-🔧 Configuration
-
-Go to Settings -> Devices & Services -> Add Integration -> EV Smart Charging Integration.
-Required Sensors
-
+### Required Sensors
 To work correctly, EVSCI needs to "see" your house:
 
-    Grid Power Sensor (W): Measures power at your main meter (e.g., Shelly EM, Smart Meter).
+*   **Grid Power Sensor (W):** Measures power at your main meter (e.g., Shelly EM, Smart Meter).
+    *   *Positive value (+):* Importing from grid (Consumption).
+    *   *Negative value (-):* Exporting to grid (Solar surplus).
+*   **Charger Power Sensor (W):** Measures how much power the EV is currently drawing.
+*   **Charger Switch:** The entity to turn the charger ON/OFF.
+*   **Charger Current:** The entity to set the charging Amps (A).
+*   **Charger Status:** A sensor indicating status (e.g., "Charging", "Idle", "Connected", "B") used for Auto-Start detection.
+*   **Tariff Sensor:** (See section above).
 
-        Positive value (+): Importing from grid (Consumption).
+### Parameters
+*   **Phases:** 1 or 3 (depends on your installation).
+*   **Main Fuse (A):** The physical limit of your main house fuse (e.g., 20A or 25A).
+*   **Safety Buffer (W):** Power reserve to prevent tripping (recommended: 200-500W).
+*   **Control Interval:** How often to increase current (default 30s). *Note: Decreasing current happens immediately for safety.*
 
-        Negative value (-): Exporting to grid (Solar surplus).
+---
 
-    Charger Power Sensor (W): Measures how much power the EV is currently drawing.
-
-    Charger Switch: The entity to turn the charger ON/OFF.
-
-    Charger Current: The entity to set the charging Amps (A).
-
-    Charger Status: A sensor indicating status (e.g., "Charging", "Idle", "Connected", "B") used for Auto-Start detection.
-
-    Tariff Sensor: (See section above).
-
-Parameters
-
-    Phases: 1 or 3 (depends on your installation).
-
-    Main Fuse (A): The physical limit of your main house fuse (e.g., 20A or 25A).
-
-    Safety Buffer (W): Power reserve to prevent tripping (recommended: 200-500W).
-
-    Control Interval: How often to increase current (default 30s). Note: Decreasing current happens immediately for safety.
-
-📊 Dashboard Card
-
+## 📊 Dashboard Card
 To get the full control panel (Mode selection, Gauges, Slider, Stats), use this YAML code in your Dashboard:
 code Yaml
 
