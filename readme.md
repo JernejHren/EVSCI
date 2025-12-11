@@ -4,8 +4,6 @@
 
 It dynamically adjusts the charging current based on your home's total grid consumption, solar production, and specific **Network Tariff Blocks**, preventing main fuse trips and optimizing charging costs.
 
-![EVSCI Logo](https://github.com/yourusername/evsci/blob/main/logo.png?raw=true)
-*(Note: If you don't have a logo image yet, remove the line above)*
 
 ## ✨ Key Features
 
