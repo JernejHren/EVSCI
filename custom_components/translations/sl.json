@@ -1,0 +1,72 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "EVSCI: Prva namestitev",
+        "description": "Povežite senzorje. Polje za sončno elektrarno lahko pustite prazno.",
+        "data": {
+          "grid_sensor": "Senzor moči omrežja (W)",
+          "charger_switch": "Stikalo polnilnice",
+          "charger_current": "Nastavitev toka (A)",
+          "charger_power": "Senzor moči polnilnice (W)",
+          "charger_status": "Status polnilnice (za zaznavo priklopa)",
+          "solar_sensor": "Senzor sončne elektrarne (W) [Opcijsko]",
+          "ev_soc_sensor": "Senzor baterije avtomobila (%) [Opcijsko]",
+          "tariff_sensor": "Senzor tarifnega bloka",
+          "phases": "Število faz (1 ali 3)",
+          "max_fuse": "Glavna varovalka (A)",
+          "buffer": "Varnostni buffer (W)",
+          "control_interval": "Interval prilagajanja toka (s)",
+          "auto_mode": "Privzeti način ob priklopu kabla",
+          "reset_on_unplug": "Izklopi (OFF) ob odklopu kabla",
+          "limit_block_1": "Limit Blok 1 (W)",
+          "limit_block_2": "Limit Blok 2 (W)",
+          "limit_block_3": "Limit Blok 3 (W)",
+          "limit_block_4": "Limit Blok 4 (W)",
+          "limit_block_5": "Limit Blok 5 (W)"
+        }
+      }
+    },
+    "error": {
+      "unknown": "Neznana napaka"
+    },
+    "abort": {
+      "already_configured": "Naprava je že konfigurirana"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Spremeni nastavitve EVSCI",
+        "description": "Tukaj lahko spremenite limite in senzorje.",
+        "data": {
+          "grid_sensor": "Senzor moči omrežja (W)",
+          "charger_switch": "Stikalo polnilnice",
+          "charger_current": "Nastavitev toka (A)",
+          "charger_power": "Senzor moči polnilnice (W)",
+          "charger_status": "Status polnilnice (za zaznavo priklopa)",
+          "solar_sensor": "Senzor sončne elektrarne (W) [Opcijsko]",
+          "ev_soc_sensor": "Senzor baterije avtomobila (%) [Opcijsko]",
+          "tariff_sensor": "Senzor tarifnega bloka",
+          "phases": "Število faz (1 ali 3)",
+          "max_fuse": "Glavna varovalka (A)",
+          "buffer": "Varnostni buffer (W)",
+          "control_interval": "Interval prilagajanja toka (s)",
+          "auto_mode": "Privzeti način ob priklopu kabla",
+          "reset_on_unplug": "Izklopi (OFF) ob odklopu kabla",
+          "limit_block_1": "Limit Blok 1 (W)",
+          "limit_block_2": "Limit Blok 2 (W)",
+          "limit_block_3": "Limit Blok 3 (W)",
+          "limit_block_4": "Limit Blok 4 (W)",
+          "limit_block_5": "Limit Blok 5 (W)"
+        }
+      }
+    },
+    "error": {
+      "unknown": "Neznana napaka"
+    },
+    "abort": {
+      "already_configured": "Naprava je že konfigurirana"
+    }
+  }
+}
