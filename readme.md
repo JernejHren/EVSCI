@@ -120,8 +120,10 @@ cards:
     name: Charging Mode
     icon: mdi:ev-station
     color: blue
+    vertical: false
     features:
       - type: select-options
+    features_position: bottom
   - type: horizontal-stack
     cards:
       - type: gauge
@@ -129,12 +131,12 @@ cards:
         name: Grid Power
         unit: W
         min: -10000
-        max: 10000
+        max: 13000
         needle: true
         severity:
           green: -10000
-          yellow: 0
-          red: 6000 # Set to your Main Fuse limit
+          yellow: 4000
+          red: 12000 # Set this to your Main Fuse limit
       - type: gauge
         entity: sensor.target_current
         name: Target Amps
@@ -167,12 +169,16 @@ cards:
     title: Session Statistics
     entities:
       - entity: sensor.session_energy_total
-        name: Energy Total
+        name: Session Energy
+        icon: mdi:lightning-bolt
       - entity: sensor.session_energy_solar
-        name: Energy Solar
+        name: Solar Part
         icon: mdi:solar-power
       - entity: sensor.session_energy_grid
-        name: Energy Grid
+        name: Grid Part
         icon: mdi:transmission-tower
+      - entity: sensor.monitored_tariff_block
+        name: Current Tariff Block
+        icon: mdi:cash-multiple
 
   
