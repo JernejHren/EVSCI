@@ -42,9 +42,9 @@ template:
     
 Select sensor.evsci_dummy_tariff during installation.
 
-    In the configuration settings, set Limit Block 1 to your home's main power limit (e.g., 11000 W).
+In the configuration settings, set Limit Block 1 to your home's main power limit (e.g., 11000 W).
 
-    You can ignore limits for Blocks 2-5.
+You can ignore limits for Blocks 2-5.
 
 🚀 Charging Modes
 
