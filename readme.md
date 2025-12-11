@@ -127,7 +127,7 @@ Parameters
 To get the full control panel (Mode selection, Gauges, Slider, Stats), use this YAML code in your Dashboard:
 code Yaml
 
-    
+```yaml    
 type: vertical-stack
 cards:
   - type: tile
@@ -195,5 +195,5 @@ cards:
       - entity: sensor.monitored_tariff_block
         name: Current Tariff Block
         icon: mdi:cash-multiple
-
+```
   
