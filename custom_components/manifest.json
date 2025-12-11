@@ -1,0 +1,11 @@
+{
+  "domain": "evsci",
+  "name": "EV Smart Charging Integration",
+  "config_flow": true,
+  "version": "0.1.0",
+  "documentation": "https://github.com/JernejHren/evsci",
+  "requirements": [],
+  "dependencies": [],
+  "codeowners": [],
+  "iot_class": "local_polling"
+}
