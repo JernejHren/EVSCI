@@ -1,4 +1,4 @@
-# EVSCI - EV Smart Charging Integration 🍌⚡️
+# EVSCI - EV Smart Charging Integration ⚡️
 
 **EVSCI** is an advanced Energy Management System (EMS) for Home Assistant, specifically designed to optimize electric vehicle charging at home.
 
