@@ -1,32 +1,41 @@
+Kopirajte spodnjo vsebino in jo shranite v datoteko z imenom README.md v korenski mapi vaše integracije (poleg datotek hacs.json in custom_components).
+code Markdown
+
+    
 # EVSCI - EV Smart Charging Integration 🍌⚡️
 
-**EVSCI** is an advanced Energy Management System (EMS) for Home Assistant, designed to optimize electric vehicle charging. It dynamically adjusts charging power based on your home's grid usage, solar production, and specific network tariff blocks, preventing main fuse trips and optimizing costs.
+**EVSCI** is an advanced Energy Management System (EMS) for Home Assistant, specifically designed to optimize electric vehicle charging at home.
+
+It dynamically adjusts the charging current based on your home's total grid consumption, solar production, and specific **Network Tariff Blocks**, preventing main fuse trips and optimizing charging costs.
+
+![EVSCI Logo](https://github.com/yourusername/evsci/blob/main/logo.png?raw=true)
+*(Note: If you don't have a logo image yet, remove the line above)*
 
 ## ✨ Key Features
 
-*   **🛡️ Main Fuse Protection:** Actively monitors total house consumption. If you turn on the oven or heat pump, EVSCI immediately lowers the EV charging current to prevent the main fuse from tripping.
-*   **📉 Network Tariff Blocks (Slovenia & others):** Specifically designed to respect the power limits of the current tariff block (e.g., the new NMPT system in Slovenia).
-*   **☀️ Solar Charging (PV):** Modes to charge exclusively from excess solar energy or mix grid/solar.
-*   **🤖 Automation & UX:**
-    *   **Auto-Start:** Automatically detects when the car is plugged in and switches to your preferred mode.
-    *   **Session Persistence:** Uses 0A (Pause) instead of stopping the session when power is low, ensuring charging resumes automatically.
-    *   **Soft Ramp-up:** Increases current gradually to be gentle on the grid and battery.
-*   **🔋 Target SoC:** Stops charging when the vehicle battery reaches a specific percentage (requires vehicle integration).
+*   **🛡️ Main Fuse Protection:** Actively monitors total house consumption. If you turn on high-load appliances (oven, heat pump), EVSCI immediately lowers the EV charging current to prevent the main fuse from tripping.
+*   **📉 Network Tariff Blocks:** Specifically designed to respect the power limits of the current tariff block (e.g., the NMPT system in Slovenia). It ensures you stay within the agreed power profile to avoid penalty fees.
+*   **☀️ Solar Charging (PV):** Intelligent modes to charge using only excess solar energy or a mix of grid and solar.
+*   **🤖 Smart Automation:**
+    *   **Auto-Start:** Automatically detects when the car is plugged in and switches to your preferred default mode.
+    *   **Session Persistence:** Instead of stopping the session when power is low, it pauses charging (0A), allowing it to resume automatically without re-authorization.
+    *   **Soft Ramp-up:** Increases current gradually to be gentle on the grid and battery, but decreases immediately in case of overload.
+*   **🔋 Target SoC Limit:** Stops charging when the vehicle battery reaches a specific percentage (requires a vehicle integration in Home Assistant).
 
 ---
 
-## ⚠️ Important: Tariff Sensor Requirement
+## ⚠️ Prerequisite: Tariff Sensor
 
-This integration relies on knowing the current **Tariff Block (1-5)** to determine the allowed power limit for that specific time of day. This is mandatory during setup.
+This integration **requires** a sensor that reports the current **Tariff Block (as an integer 1-5)**. This is used to determine the power limit for the current time of day.
 
 ### 🇸🇮 For Users in Slovenia
-It is highly recommended to use the **[Network Tariff (NMPT)](https://github.com/frlequ/home-assistant-network-tariff)** integration by *frlequ*. It automatically provides the correct block (1-5) for the Slovenian grid.
+It is highly recommended to use the **[Network Tariff (NMPT)](https://github.com/frlequ/home-assistant-network-tariff)** integration. It automatically provides the correct block (1-5) for the Slovenian grid.
 *   Select the entity provided by this integration (e.g., `sensor.network_tariff_current_block`) during setup.
 
 ### 🌍 For International Users / Single Tariff
 If you live in a country with a single power limit (no complex time blocks), you **must create a template sensor** that always returns `1`.
 
-Add this to your `configuration.yaml`:
+Add this to your `configuration.yaml` and restart Home Assistant:
 
 ```yaml
 template:
@@ -34,24 +43,25 @@ template:
       - name: "EVSCI Dummy Tariff"
         state: "1"
 
-Then select sensor.evsci_dummy_tariff during installation.
+  
+
+    Select sensor.evsci_dummy_tariff during installation.
 
     In the configuration settings, set Limit Block 1 to your home's main power limit (e.g., 11000 W).
 
     You can ignore limits for Blocks 2-5.
 
-🕒 For Users with simple Day/Night Tariffs
-
-You can create a template sensor that returns 1 during the day and 2 during the night, and set different power limits for Block 1 and Block 2 in the EVSCI configuration.
 🚀 Charging Modes
 
     OFF: Charging is disabled.
 
     Dynamic: The smartest mode. Charges as fast as possible but strictly respects the current Tariff Block limit to avoid penalty fees.
 
-    PV Only: Charges only using excess solar energy. If excess power drops below 6A, charging pauses (0A).
+    PV Only: Charges only using excess solar energy.
 
-        Note: Works independently of tariff blocks (uses available solar).
+        Starts when excess power > 6A.
+
+        Pauses (0A) if clouds appear or house consumption rises.
 
     Min + PV: Always charges at minimum power (6A) from the grid to ensure progress, but adds excess solar power on top when available.
 
@@ -66,13 +76,19 @@ Via HACS (Recommended)
 
     Open HACS -> Integrations.
 
-    Add this repository as a Custom Repository.
+    Click the three dots in the top right corner -> Custom repositories.
 
-    Search for "EV Smart Charging Integration" and install.
+    Paste the URL of this repository.
+
+    Category: Integration.
+
+    Click Add, then search for "EV Smart Charging Integration" and install.
 
     Restart Home Assistant.
 
 Manual Installation
+
+    Download the evsci.zip file (or clone the repo).
 
     Copy the custom_components/evsci folder into your Home Assistant's config/custom_components/ directory.
 
@@ -85,11 +101,11 @@ Required Sensors
 
 To work correctly, EVSCI needs to "see" your house:
 
-    Grid Power Sensor (W): Measures power at your main meter.
+    Grid Power Sensor (W): Measures power at your main meter (e.g., Shelly EM, Smart Meter).
 
-        Positive value: Importing from grid (Consumption).
+        Positive value (+): Importing from grid (Consumption).
 
-        Negative value: Exporting to grid (Solar surplus).
+        Negative value (-): Exporting to grid (Solar surplus).
 
     Charger Power Sensor (W): Measures how much power the EV is currently drawing.
 
@@ -97,17 +113,21 @@ To work correctly, EVSCI needs to "see" your house:
 
     Charger Current: The entity to set the charging Amps (A).
 
-    Charger Status: A sensor indicating status (e.g., "Charging", "Idle", "Connected") used for Auto-Start detection.
+    Charger Status: A sensor indicating status (e.g., "Charging", "Idle", "Connected", "B") used for Auto-Start detection.
 
     Tariff Sensor: (See section above).
 
-Optional Sensors
+Parameters
 
-    Solar Power Sensor (W): Used for display/stats.
+    Phases: 1 or 3 (depends on your installation).
 
-    EV Battery Sensor (%): Used for the "Target Battery Limit" feature.
+    Main Fuse (A): The physical limit of your main house fuse (e.g., 20A or 25A).
 
-📊 Lovelace Dashboard Card
+    Safety Buffer (W): Power reserve to prevent tripping (recommended: 200-500W).
+
+    Control Interval: How often to increase current (default 30s). Note: Decreasing current happens immediately for safety.
+
+📊 Dashboard Card
 
 To get the full control panel (Mode selection, Gauges, Slider, Stats), use this YAML code in your Dashboard:
 code Yaml
@@ -182,3 +202,6 @@ cards:
         icon: mdi:cash-multiple
 
   
+
+Developed for the Home Assistant community.
+code Code
