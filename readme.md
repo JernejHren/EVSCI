@@ -48,23 +48,23 @@ You can ignore limits for Blocks 2-5.
 
 🚀 Charging Modes
 
-    OFF: Charging is disabled.
+OFF: Charging is disabled.
 
-    Dynamic: The smartest mode. Charges as fast as possible but strictly respects the current Tariff Block limit to avoid penalty fees.
+Dynamic: The smartest mode. Charges as fast as possible but strictly respects the current Tariff Block limit to avoid penalty fees.
 
-    PV Only: Charges only using excess solar energy.
+PV Only: Charges only using excess solar energy.
 
-        Starts when excess power > 6A.
+Starts when excess power > 6A.
 
-        Pauses (0A) if clouds appear or house consumption rises.
+Pauses (0A) if clouds appear or house consumption rises.
 
-    Min + PV: Always charges at minimum power (6A) from the grid to ensure progress, but adds excess solar power on top when available.
+Min + PV: Always charges at minimum power (6A) from the grid to ensure progress, but adds excess solar power on top when available.
 
-    Max Power: Charges at the maximum speed allowed by your Main Fuse.
+Max Power: Charges at the maximum speed allowed by your Main Fuse.
 
-        Warning: This ignores Tariff Block limits and might incur grid fees, but ensures the fastest charge without tripping the physical fuse.
+Warning: This ignores Tariff Block limits and might incur grid fees, but ensures the fastest charge without tripping the physical fuse.
 
-    Schedule: Works like Dynamic, but only within the time window you define (e.g., 22:00 - 06:00). Outside this window, charging is paused (0A).
+Schedule: Works like Dynamic, but only within the time window you define (e.g., 22:00 - 06:00). Outside this window, charging is paused (0A).
 
 ⚙️ Installation
 Via HACS (Recommended)
