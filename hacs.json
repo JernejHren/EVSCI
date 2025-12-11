@@ -1,0 +1,6 @@
+{
+  "name": "EV Smart Charging Integration",
+  "render_readme": true,
+  "hide_default_branch": true,
+  "homeassistant": "2025.12.0"
+}
