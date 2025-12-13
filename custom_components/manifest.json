@@ -2,7 +2,7 @@
   "domain": "evsci",
   "name": "EV Smart Charging Integration",
   "config_flow": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "documentation": "https://github.com/JernejHren/evsci",
   "requirements": [],
   "dependencies": [],
