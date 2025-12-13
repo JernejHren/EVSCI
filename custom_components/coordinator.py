@@ -84,6 +84,9 @@ class EVSCICoordinator(DataUpdateCoordinator):
         # Rate Limiting
         self._last_amp_change_time = 0.0
         
+        # Spomin za tarifo
+        self._last_valid_tariff = 1
+        
         self._load_config()
 
     def _load_config(self):
@@ -154,8 +157,18 @@ class EVSCICoordinator(DataUpdateCoordinator):
             data_is_stale = True
 
         solar_power = self._get_float_state(self.solar_entity)
-        tariff = self._get_int_state(self.tariff_entity, 1)
-        if tariff < 1 or tariff > 5: tariff = 1
+        
+        # --- BRANJE TARIFE (POPRAVLJENO) ---
+        # -1 pomeni, da je branje neuspešno
+        raw_tariff = self._get_int_state(self.tariff_entity, -1)
+        
+        if 1 <= raw_tariff <= 5:
+            # Če je tarifa validna, jo shrani in uporabi
+            self._last_valid_tariff = raw_tariff
+            tariff = raw_tariff
+        else:
+            # Če je napaka ali unavailable, uporabi zadnjo znano
+            tariff = self._last_valid_tariff
         
         charger_real_power = self._get_float_state(self.charger_power_entity)
         
@@ -218,7 +231,7 @@ class EVSCICoordinator(DataUpdateCoordinator):
             # Pošljemo ukaz za izklop (tok 0, stikalo OFF)
             await self._apply_changes(0, False, current_hw_amps)
             
-            # Vrni podatke (da senzorji delajo) in končaj
+            # Vrni podatke
             return {
                 "grid_power": grid_power,
                 "charger_power": charger_real_power,
@@ -292,14 +305,13 @@ class EVSCICoordinator(DataUpdateCoordinator):
         # --- 7. FINALIZACIJA ---
         adjusted_amps = current_hw_amps
         
-        # Izračun limitov v Amperih
         amps_limit_maintain = math.floor((limit_maintain - house_load) / self.power_per_amp)
         amps_limit_increase = math.floor((limit_increase - house_load) / self.power_per_amp)
         
         amps_limit_maintain = min(amps_limit_maintain, self.max_fuse_amps)
         amps_limit_increase = min(amps_limit_increase, self.max_fuse_amps)
 
-        # Kandidat = Minimum med željo in varnostnim limitom
+        # Kandidat
         if data_is_stale:
             candidate_amps = 0
         else:
@@ -307,8 +319,6 @@ class EVSCICoordinator(DataUpdateCoordinator):
 
         # A. ZMANJŠEVANJE?
         if candidate_amps < current_hw_amps:
-            
-            # Ali je KRITIČNO? (Red Zone)
             is_emergency = False
             current_total_amps = current_hw_amps + (house_load / self.power_per_amp)
             
@@ -317,14 +327,11 @@ class EVSCICoordinator(DataUpdateCoordinator):
 
             if is_emergency:
                  _LOGGER.info("EVSCI: Kritična preobremenitev! Znižujem takoj.")
-                 # Soft Emergency: Najprej na 6A, če ne gre, na 0A
                  if current_hw_amps > MIN_AMPS:
                      adjusted_amps = MIN_AMPS
                  else:
                      adjusted_amps = 0
-            
             else:
-                # Navadno zmanjšanje -> Čakaj interval
                 time_since_change = now_time - self._last_amp_change_time
                 if time_since_change >= self.control_interval:
                     adjusted_amps = candidate_amps
@@ -333,7 +340,6 @@ class EVSCICoordinator(DataUpdateCoordinator):
 
         # B. POVEČEVANJE?
         elif candidate_amps > current_hw_amps:
-            # Preveri Green Zone (Buffer)
             safe_target_up = min(target_mode_amps, amps_limit_increase)
             
             if safe_target_up > current_hw_amps:
@@ -349,38 +355,36 @@ class EVSCICoordinator(DataUpdateCoordinator):
                 else:
                     adjusted_amps = current_hw_amps
             else:
-                adjusted_amps = current_hw_amps # Deadband
-
+                adjusted_amps = current_hw_amps
         else:
             adjusted_amps = current_hw_amps
 
-        # C. Minimum in Pavza
+        # C. Minimum
         if adjusted_amps < MIN_AMPS:
             adjusted_amps = 0
 
         self.calculated_amp = adjusted_amps
         
-        # --- 8. ODLOČANJE O STANJU STIKALA (NOVA LOGIKA VKLOPA) ---
+        # --- 8. ODLOČANJE O STANJU STIKALA ---
         final_switch_state = False
         
         if self.is_charging:
-            # Če je ON, ostane ON, dokler način želi (tudi pri 0A)
             if should_session_be_active:
                 final_switch_state = True
             else:
-                final_switch_state = False # Stop Session
+                final_switch_state = False 
         else:
-            # Če je OFF, se vklopi SAMO če imamo dovolj toka (Start Threshold)
             if should_session_be_active and adjusted_amps >= MIN_AMPS:
                 final_switch_state = True
             else:
-                final_switch_state = False # Čakamo na pogoje
+                final_switch_state = False
 
         await self._apply_changes(adjusted_amps, final_switch_state, current_hw_amps)
 
         return {
             "grid_power": grid_power,
             "charger_power": charger_real_power,
+            "tariff": tariff,
             "mode": self.selected_mode,
             "target_current": self.calculated_amp,
             "is_charging": self.is_charging,
@@ -394,28 +398,26 @@ class EVSCICoordinator(DataUpdateCoordinator):
 
     async def _apply_changes(self, target_amps, should_be_active, current_hw_amps):
         """Pošiljanje ukazov."""
-        
-        # 1. KRMILJENJE TOKA (0A = Pavza)
         if target_amps != current_hw_amps:
             if self.is_charging or should_be_active:
                 _LOGGER.info(f"EVSCI: Tok {current_hw_amps}A -> {target_amps}A")
                 await self.hass.services.async_call("number", SERVICE_SET_VALUE, {ATTR_ENTITY_ID: self.charger_current_entity, "value": target_amps})
                 self._last_amp_change_time = time.time()
 
-        # 2. STATUS STIKALA
         if should_be_active and not self.is_charging:
-             _LOGGER.info("EVSCI: Start Session (Switch ON)")
-             await self.hass.services.async_call("switch", SERVICE_TURN_ON, {ATTR_ENTITY_ID: self.charger_switch_entity})
-             if target_amps > 0:
-                 await asyncio.sleep(1)
-                 await self.hass.services.async_call("number", SERVICE_SET_VALUE, {ATTR_ENTITY_ID: self.charger_current_entity, "value": target_amps})
+             if target_amps > 0: # Start Threshold
+                 _LOGGER.info("EVSCI: Start Session (Switch ON)")
+                 await self.hass.services.async_call("switch", SERVICE_TURN_ON, {ATTR_ENTITY_ID: self.charger_switch_entity})
+                 if target_amps > 0:
+                     await asyncio.sleep(1)
+                     await self.hass.services.async_call("number", SERVICE_SET_VALUE, {ATTR_ENTITY_ID: self.charger_current_entity, "value": target_amps})
              
         elif not should_be_active and self.is_charging:
              if self._cable_connected:
                  _LOGGER.info("EVSCI: End Session (Switch OFF)")
                  await self.hass.services.async_call("switch", SERVICE_TURN_OFF, {ATTR_ENTITY_ID: self.charger_switch_entity})
              else:
-                 _LOGGER.debug("EVSCI: Session inactive, but cable unplugged. Skip switch OFF.")
+                 _LOGGER.debug("EVSCI: Session inactive, cable unplugged. Skip switch OFF.")
 
     def _get_float_state(self, entity_id):
         if not entity_id: return 0.0
@@ -426,8 +428,11 @@ class EVSCICoordinator(DataUpdateCoordinator):
     def _get_int_state(self, entity_id, default=0):
         if not entity_id: return default
         state = self.hass.states.get(entity_id)
-        try: return int(state.state)
-        except: return default
+        try: 
+            # KLJUČNI POPRAVEK: float() -> int(), da prebavi "2.0"
+            return int(float(state.state))
+        except: 
+            return default
 
     def set_mode(self, mode):
         self.selected_mode = mode
