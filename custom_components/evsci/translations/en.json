@@ -1,0 +1,72 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "EVSCI: Initial Setup",
+        "description": "Connect your sensors. Solar sensor field can be left empty.",
+        "data": {
+          "grid_sensor": "Grid Power Sensor (W)",
+          "charger_switch": "Charger Switch",
+          "charger_current": "Charger Current Control (A)",
+          "charger_power": "Charger Power Sensor (W)",
+          "charger_status": "Charger Status (for plug-in detection)",
+          "solar_sensor": "Solar Power Sensor (W) [Optional]",
+          "ev_soc_sensor": "EV Battery Sensor (%) [Optional]",
+          "tariff_sensor": "Tariff Block Sensor",
+          "phases": "Number of Phases (1 or 3)",
+          "max_fuse": "Main Fuse Limit (A)",
+          "buffer": "Safety Buffer (W)",
+          "control_interval": "Current adjustment interval (s)",
+          "auto_mode": "Default Mode on Plug-in",
+          "reset_on_unplug": "Reset Mode to OFF on Unplug",
+          "limit_block_1": "Limit Block 1 (W)",
+          "limit_block_2": "Limit Block 2 (W)",
+          "limit_block_3": "Limit Block 3 (W)",
+          "limit_block_4": "Limit Block 4 (W)",
+          "limit_block_5": "Limit Block 5 (W)"
+        }
+      }
+    },
+    "error": {
+      "unknown": "Unknown error"
+    },
+    "abort": {
+      "already_configured": "Device is already configured"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Configure EVSCI Settings",
+        "description": "Update limits and sensors here.",
+        "data": {
+          "grid_sensor": "Grid Power Sensor (W)",
+          "charger_switch": "Charger Switch",
+          "charger_current": "Charger Current Control (A)",
+          "charger_power": "Charger Power Sensor (W)",
+          "charger_status": "Charger Status (for plug-in detection)",
+          "solar_sensor": "Solar Power Sensor (W) [Optional]",
+          "ev_soc_sensor": "EV Battery Sensor (%) [Optional]",
+          "tariff_sensor": "Tariff Block Sensor",
+          "phases": "Number of Phases (1 or 3)",
+          "max_fuse": "Main Fuse Limit (A)",
+          "buffer": "Safety Buffer (W)",
+          "control_interval": "Current adjustment interval (s)",
+          "auto_mode": "Default Mode on Plug-in",
+          "reset_on_unplug": "Reset Mode to OFF on Unplug",
+          "limit_block_1": "Limit Block 1 (W)",
+          "limit_block_2": "Limit Block 2 (W)",
+          "limit_block_3": "Limit Block 3 (W)",
+          "limit_block_4": "Limit Block 4 (W)",
+          "limit_block_5": "Limit Block 5 (W)"
+        }
+      }
+    },
+    "error": {
+      "unknown": "Unknown error"
+    },
+    "abort": {
+      "already_configured": "Device is already configured"
+    }
+  }
+}
