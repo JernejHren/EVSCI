@@ -158,16 +158,11 @@ class EVSCICoordinator(DataUpdateCoordinator):
 
         solar_power = self._get_float_state(self.solar_entity)
         
-        # --- BRANJE TARIFE (POPRAVLJENO) ---
-        # -1 pomeni, da je branje neuspešno
         raw_tariff = self._get_int_state(self.tariff_entity, -1)
-        
         if 1 <= raw_tariff <= 5:
-            # Če je tarifa validna, jo shrani in uporabi
             self._last_valid_tariff = raw_tariff
             tariff = raw_tariff
         else:
-            # Če je napaka ali unavailable, uporabi zadnjo znano
             tariff = self._last_valid_tariff
         
         charger_real_power = self._get_float_state(self.charger_power_entity)
@@ -201,7 +196,7 @@ class EVSCICoordinator(DataUpdateCoordinator):
         self.energy_inc_grid = (ev_grid_power_usage * safe_time_diff) / 3600000.0
         self.energy_inc_solar = (ev_solar_power_usage * safe_time_diff) / 3600000.0
 
-        # --- 3. LOGIKA PRIKLOPA ---
+                # --- 3. LOGIKA PRIKLOPA ---
         if self.charger_status_entity:
             status_state = self.hass.states.get(self.charger_status_entity)
             if status_state:
@@ -231,7 +226,6 @@ class EVSCICoordinator(DataUpdateCoordinator):
             # Pošljemo ukaz za izklop (tok 0, stikalo OFF)
             await self._apply_changes(0, False, current_hw_amps)
             
-            # Vrni podatke
             return {
                 "grid_power": grid_power,
                 "charger_power": charger_real_power,
@@ -319,34 +313,50 @@ class EVSCICoordinator(DataUpdateCoordinator):
 
         # A. ZMANJŠEVANJE?
         if candidate_amps < current_hw_amps:
-            is_emergency = False
-            current_total_amps = current_hw_amps + (house_load / self.power_per_amp)
+            # Če smo OFF, ne čakamo intervala (varnost pri vklopu), ampak takoj vzamemo kandidata.
+            # Če smo ON, preverimo emergency.
             
-            if current_total_amps > self.max_fuse_amps: is_emergency = True
-            if self.selected_mode != MODE_MAX_POWER and grid_power > limit_emergency: is_emergency = True
-
-            if is_emergency:
-                 _LOGGER.info("EVSCI: Kritična preobremenitev! Znižujem takoj.")
-                 if current_hw_amps > MIN_AMPS:
-                     adjusted_amps = MIN_AMPS
-                 else:
-                     adjusted_amps = 0
+            if not self.is_charging:
+                 # POPRAVEK: Pri izklopljeni polnilnici takoj uporabi kandidata, da preprečiš vklop s prevelikim tokom
+                 adjusted_amps = candidate_amps
+            
             else:
-                time_since_change = now_time - self._last_amp_change_time
-                if time_since_change >= self.control_interval:
-                    adjusted_amps = candidate_amps
+                is_emergency = False
+                current_total_amps = current_hw_amps + (house_load / self.power_per_amp)
+                
+                if current_total_amps > self.max_fuse_amps: is_emergency = True
+                if self.selected_mode != MODE_MAX_POWER and grid_power > limit_emergency: is_emergency = True
+
+                if is_emergency:
+                     _LOGGER.info("EVSCI: Kritična preobremenitev! Znižujem takoj.")
+                     if current_hw_amps > MIN_AMPS:
+                         adjusted_amps = MIN_AMPS
+                     else:
+                         adjusted_amps = 0
                 else:
-                    adjusted_amps = current_hw_amps
+                    time_since_change = now_time - self._last_amp_change_time
+                    if time_since_change >= self.control_interval:
+                        adjusted_amps = candidate_amps
+                    else:
+                        adjusted_amps = current_hw_amps
 
         # B. POVEČEVANJE?
         elif candidate_amps > current_hw_amps:
+            # Preveri Green Zone
             safe_target_up = min(target_mode_amps, amps_limit_increase)
             
             if safe_target_up > current_hw_amps:
                 time_since_change = now_time - self._last_amp_change_time
                 is_startup = (current_hw_amps < MIN_AMPS and safe_target_up >= MIN_AMPS)
                 
-                if is_startup or time_since_change >= self.control_interval:
+                # POPRAVEK: Tudi pri startupu moramo spoštovati interval, RAZEN če je polnilnica OFF.
+                # Če je polnilnica OFF, dovolimo takojšen izračun, da lahko vklopi.
+                
+                if not self.is_charging:
+                    # Hladen zagon: Dovolimo takoj
+                    adjusted_amps = safe_target_up if safe_target_up < MIN_AMPS else MIN_AMPS
+                
+                elif is_startup or time_since_change >= self.control_interval:
                     if is_startup:
                         adjusted_amps = safe_target_up if safe_target_up < MIN_AMPS else MIN_AMPS
                     else:
@@ -369,15 +379,17 @@ class EVSCICoordinator(DataUpdateCoordinator):
         final_switch_state = False
         
         if self.is_charging:
+            # Če je ON, ostane ON, dokler način želi (tudi pri 0A)
             if should_session_be_active:
                 final_switch_state = True
             else:
                 final_switch_state = False 
         else:
+            # Če je OFF, se vklopi SAMO če imamo dovolj toka (Start Threshold)
             if should_session_be_active and adjusted_amps >= MIN_AMPS:
                 final_switch_state = True
             else:
-                final_switch_state = False
+                final_switch_state = False # Čakamo na pogoje
 
         await self._apply_changes(adjusted_amps, final_switch_state, current_hw_amps)
 
@@ -429,7 +441,6 @@ class EVSCICoordinator(DataUpdateCoordinator):
         if not entity_id: return default
         state = self.hass.states.get(entity_id)
         try: 
-            # KLJUČNI POPRAVEK: float() -> int(), da prebavi "2.0"
             return int(float(state.state))
         except: 
             return default
