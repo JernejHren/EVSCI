@@ -2,32 +2,90 @@
   "config": {
     "step": {
       "user": {
-        "title": "EVSCI: Prva namestitev",
-        "description": "Povežite senzorje. Polje za sončno elektrarno lahko pustite prazno.",
+        "title": "Izberite tip polnilnice",
+        "description": "Izberite tip vaše polnilnice za avtomatsko konfiguracijo. Če vaše polnilnice ni na seznamu, izberite 'Drugo / Po meri'.",
         "data": {
-          "grid_sensor": "Senzor moči omrežja (W)",
+          "charger_type": "Tip polnilnice"
+        }
+      },
+      "charger_config": {
+        "title": "Konfiguracija polnilnice",
+        "description": "Izberite entitete vaše polnilnice. Status vrednosti so avtomatsko nastavljene glede na izbran tip.",
+        "data": {
           "charger_switch": "Stikalo polnilnice",
           "charger_current": "Nastavitev toka (A)",
           "charger_power": "Senzor moči polnilnice (W)",
           "charger_status": "Status polnilnice (za zaznavo priklopa)",
-          "solar_sensor": "Senzor sončne elektrarne (W) [Opcijsko]",
           "ev_soc_sensor": "Senzor baterije avtomobila (%) [Opcijsko]",
-          "tariff_sensor": "Senzor tarifnega bloka",
-          "phases": "Število faz (1 ali 3)",
+          "current_unit": "Enota toka",
+          "status_charging_values": "Vrednosti statusa - polnjenje",
+          "status_connected_values": "Vrednosti statusa - priključeno"
+        },
+        "data_description": {
+          "charger_switch": "Entiteta za vklop/izklop polnjenja (npr. switch.abb_start_stop_charging)",
+          "charger_current": "Entiteta za nastavitev toka v amperih (npr. number.abb_charging_current_limit)",
+          "charger_power": "Senzor trenutne moči polnjenja v wattih (npr. sensor.abb_active_power)",
+          "charger_status": "Senzor stanja polnilnice, uporabljen za zaznavanje priklopa kabla (npr. sensor.abb_charging_state)",
+          "ev_soc_sensor": "Senzor napolnjenosti baterije avtomobila v odstotkih - potrebna integracija za vaš avto",
+          "current_unit": "Enota v kateri polnilnica sprejema tok (večina: Amperi)",
+          "status_charging_values": "Seznam vrednosti ki pomenijo da polnilnica polni (ločeno z vejico, npr. '4' za ABB ali 'charging,Charging' za Wallbox)",
+          "status_connected_values": "Seznam vrednosti ki pomenijo da je kabel priključen (ločeno z vejico, npr. '1,2,3,4,5' za ABB)"
+        }
+      },
+      "grid_config": {
+        "title": "Konfiguracija merilcev omrežja",
+        "description": "Nastavite senzorje za spremljanje porabe omrežja in proizvodnje solarne energije.\n\nPOMEMBNO: Pozitivna vrednost (+) naj pomeni uvoz iz omrežja, negativna (-) izvoz v omrežje. Če je obratno, označite 'Inverzija vrednosti'.",
+        "data": {
+          "grid_sensor": "Merilec omrežja (W)",
+          "grid_sensor_inverted": "Inverzija vrednosti merilca",
+          "use_grid_template": "Uporabi template sensor",
+          "grid_template": "Template koda",
+          "solar_sensor": "Senzor solarne proizvodnje (W) [Opcijsko]",
+          "tariff_sensor": "Senzor tarifnega bloka (1-5)"
+        },
+        "data_description": {
+          "grid_sensor": "Senzor moči omrežja na glavni varovalki (npr. sensor.shelly_3em_total_active_power). Pozitivno = uvoz, negativno = izvoz.",
+          "grid_sensor_inverted": "Obkljukajte če vaš merilec vrača pozitivno pri izvozu (izvoz = +, uvoz = -)",
+          "use_grid_template": "Za napredne uporabnike: kombinirajte več merilcev z Jinja2 template",
+          "grid_template": "Jinja2 template za izračun omrežne moči (npr. {{ states('sensor.meter1')|float + states('sensor.meter2')|float }})",
+          "solar_sensor": "Senzor trenutne proizvodnje sončne elektrarne v wattih (pustite prazno če nimate sončne elektrarne)",
+          "tariff_sensor": "Senzor trenutnega tarifnega bloka (1-5). Za NMPT v Sloveniji uporabite Network Tariff integracijo. Za eno tarifo ustvarite dummy sensor ki vrača '1'."
+        }
+      },
+      "limits": {
+        "title": "Meje moči in kontrolni parametri",
+        "description": "Nastavite varnostne meje in tarifne limite za optimalno polnjenje.\n\nTARIFNI BLOKI:\n• Slovenija (NMPT): Nastavite različne limite za bloke 1-5\n• Ena tarifa: Vse bloke nastavite na enako vrednost\n• Brez tarifnega sistema: Uporabite dummy sensor s fiksno vrednostjo '1'",
+        "data": {
+          "phases": "Število faz",
           "max_fuse": "Glavna varovalka (A)",
-          "buffer": "Varnostni buffer (W)",
-          "control_interval": "Interval prilagajanja toka (s)",
-          "auto_mode": "Privzeti način ob priklopu kabla",
-          "reset_on_unplug": "Izklopi (OFF) ob odklopu kabla",
-          "limit_block_1": "Limit Blok 1 (W)",
-          "limit_block_2": "Limit Blok 2 (W)",
-          "limit_block_3": "Limit Blok 3 (W)",
-          "limit_block_4": "Limit Blok 4 (W)",
-          "limit_block_5": "Limit Blok 5 (W)"
+          "buffer": "Varnostni odmer (W)",
+          "control_interval": "Interval povečevanja toka (s)",
+          "auto_mode": "Način ob priključitvi kabla",
+          "reset_on_unplug": "Počisti sejo ob odstranitvi kabla",
+          "limit_block_1": "Limit bloka 1 (W)",
+          "limit_block_2": "Limit bloka 2 (W)",
+          "limit_block_3": "Limit bloka 3 (W)",
+          "limit_block_4": "Limit bloka 4 (W)",
+          "limit_block_5": "Limit bloka 5 (W)"
+        },
+        "data_description": {
+          "phases": "Število faz vaše priključitve (1 ali 3)",
+          "max_fuse": "Nazivna vrednost glavne varovalke v amperih (npr. 25A)",
+          "buffer": "Varnostni odmer moči za preprečevanje izpada varovalke (priporočeno: 300-500W)",
+          "control_interval": "Čas v sekundah med povečanji toka. Zmanjšanje toka se zgodi takoj. (priporočeno: 30s)",
+          "auto_mode": "Kateri način naj se avtomatsko aktivira ko priključite kabel na avto",
+          "reset_on_unplug": "Če je vklopljeno, se način polnjenja resetira na OFF ko odklopite kabel",
+          "limit_block_1": "NMPT Blok 1 - najvišja tarifa (npr. 11500W za 5kW profil). Za eno tarifo: vaša glavna moč.",
+          "limit_block_2": "NMPT Blok 2 (npr. 8050W). Za eno tarifo: enako kot blok 1.",
+          "limit_block_3": "NMPT Blok 3 (npr. 5750W). Za eno tarifo: enako kot blok 1.",
+          "limit_block_4": "NMPT Blok 4 (npr. 4600W). Za eno tarifo: enako kot blok 1.",
+          "limit_block_5": "NMPT Blok 5 - najnižja tarifa (npr. 4600W). Za eno tarifo: enako kot blok 1."
         }
       }
     },
     "error": {
+      "cannot_connect": "Napaka pri povezavi",
+      "invalid_auth": "Napačna avtentikacija",
       "unknown": "Neznana napaka"
     },
     "abort": {
@@ -40,33 +98,62 @@
         "title": "Spremeni nastavitve EVSCI",
         "description": "Tukaj lahko spremenite limite in senzorje.",
         "data": {
-          "grid_sensor": "Senzor moči omrežja (W)",
+          "charger_type": "Tip polnilnice",
           "charger_switch": "Stikalo polnilnice",
           "charger_current": "Nastavitev toka (A)",
           "charger_power": "Senzor moči polnilnice (W)",
           "charger_status": "Status polnilnice (za zaznavo priklopa)",
-          "solar_sensor": "Senzor sončne elektrarne (W) [Opcijsko]",
           "ev_soc_sensor": "Senzor baterije avtomobila (%) [Opcijsko]",
-          "tariff_sensor": "Senzor tarifnega bloka",
-          "phases": "Število faz (1 ali 3)",
+          "current_unit": "Enota toka",
+          "status_charging_values": "Vrednosti statusa - polnjenje",
+          "status_connected_values": "Vrednosti statusa - priključeno",
+          "grid_sensor": "Merilec omrežja (W)",
+          "grid_sensor_inverted": "Inverzija vrednosti merilca",
+          "use_grid_template": "Uporabi template sensor",
+          "grid_template": "Template koda",
+          "solar_sensor": "Senzor solarne proizvodnje (W) [Opcijsko]",
+          "tariff_sensor": "Senzor tarifnega bloka (1-5)",
+          "phases": "Število faz",
           "max_fuse": "Glavna varovalka (A)",
-          "buffer": "Varnostni buffer (W)",
-          "control_interval": "Interval prilagajanja toka (s)",
-          "auto_mode": "Privzeti način ob priklopu kabla",
-          "reset_on_unplug": "Izklopi (OFF) ob odklopu kabla",
-          "limit_block_1": "Limit Blok 1 (W)",
-          "limit_block_2": "Limit Blok 2 (W)",
-          "limit_block_3": "Limit Blok 3 (W)",
-          "limit_block_4": "Limit Blok 4 (W)",
-          "limit_block_5": "Limit Blok 5 (W)"
+          "buffer": "Varnostni odmer (W)",
+          "control_interval": "Interval povečevanja toka (s)",
+          "auto_mode": "Način ob priključitvi kabla",
+          "reset_on_unplug": "Počisti sejo ob odstranitvi kabla",
+          "limit_block_1": "Limit bloka 1 (W)",
+          "limit_block_2": "Limit bloka 2 (W)",
+          "limit_block_3": "Limit bloka 3 (W)",
+          "limit_block_4": "Limit bloka 4 (W)",
+          "limit_block_5": "Limit bloka 5 (W)"
+        },
+        "data_description": {
+          "charger_type": "Tip vaše polnilnice (za pravilne prednastavitve)",
+          "charger_switch": "Entiteta za vklop/izklop polnjenja",
+          "charger_current": "Entiteta za nastavitev toka v amperih",
+          "charger_power": "Senzor trenutne moči polnjenja v wattih",
+          "charger_status": "Senzor stanja polnilnice za zaznavanje priklopa kabla",
+          "ev_soc_sensor": "Senzor napolnjenosti baterije avtomobila v odstotkih",
+          "current_unit": "Enota v kateri polnilnica sprejema tok",
+          "status_charging_values": "Vrednosti ki pomenijo da polnilnica polni (ločeno z vejico)",
+          "status_connected_values": "Vrednosti ki pomenijo da je kabel priključen (ločeno z vejico)",
+          "grid_sensor": "Senzor moči omrežja. Pozitivno = uvoz, negativno = izvoz",
+          "grid_sensor_inverted": "Če vaš merilec ima obratno logiko (pozitivno = izvoz)",
+          "use_grid_template": "Uporabite template za kombinacijo več merilcev",
+          "grid_template": "Jinja2 template za izračun omrežne moči",
+          "solar_sensor": "Trenutna proizvodnja sončne elektrarne (pustite prazno če nimate)",
+          "tariff_sensor": "Senzor trenutnega tarifnega bloka (1-5)",
+          "phases": "Število faz priključitve (1 ali 3)",
+          "max_fuse": "Nazivna vrednost glavne varovalke v amperih",
+          "buffer": "Varnostni odmer za preprečevanje izpada",
+          "control_interval": "Čas med povečanji toka (zmanjšanje je takojšnje)",
+          "auto_mode": "Avtomatski način ob priključitvi kabla",
+          "reset_on_unplug": "Resetiraj način polnjenja ob odklopu kabla",
+          "limit_block_1": "NMPT Blok 1 ali glavna moč za eno tarifo",
+          "limit_block_2": "NMPT Blok 2 (ali enako kot blok 1)",
+          "limit_block_3": "NMPT Blok 3 (ali enako kot blok 1)",
+          "limit_block_4": "NMPT Blok 4 (ali enako kot blok 1)",
+          "limit_block_5": "NMPT Blok 5 (ali enako kot blok 1)"
         }
       }
-    },
-    "error": {
-      "unknown": "Neznana napaka"
-    },
-    "abort": {
-      "already_configured": "Naprava je že konfigurirana"
     }
   }
 }

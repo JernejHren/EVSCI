@@ -2,71 +2,158 @@
   "config": {
     "step": {
       "user": {
-        "title": "EVSCI: Initial Setup",
-        "description": "Connect your sensors. Solar sensor field can be left empty.",
+        "title": "Select Charger Type",
+        "description": "Select your charger type for automatic configuration. If your charger is not listed, select 'Other / Custom'.",
         "data": {
-          "grid_sensor": "Grid Power Sensor (W)",
+          "charger_type": "Charger Type"
+        }
+      },
+      "charger_config": {
+        "title": "Charger Configuration",
+        "description": "Select your charger entities. Status values are automatically set based on the selected type.",
+        "data": {
           "charger_switch": "Charger Switch",
-          "charger_current": "Charger Current Control (A)",
+          "charger_current": "Current Setting (A)",
           "charger_power": "Charger Power Sensor (W)",
-          "charger_status": "Charger Status (for plug-in detection)",
-          "solar_sensor": "Solar Power Sensor (W) [Optional]",
-          "ev_soc_sensor": "EV Battery Sensor (%) [Optional]",
-          "tariff_sensor": "Tariff Block Sensor",
-          "phases": "Number of Phases (1 or 3)",
-          "max_fuse": "Main Fuse Limit (A)",
+          "charger_status": "Charger Status (for plug detection)",
+          "ev_soc_sensor": "Vehicle Battery Sensor (%) [Optional]",
+          "current_unit": "Current Unit",
+          "status_charging_values": "Status Values - Charging",
+          "status_connected_values": "Status Values - Connected"
+        },
+        "data_description": {
+          "charger_switch": "Entity to turn charging on/off (e.g., switch.abb_start_stop_charging)",
+          "charger_current": "Entity to set current in amperes (e.g., number.abb_charging_current_limit)",
+          "charger_power": "Current charging power sensor in watts (e.g., sensor.abb_active_power)",
+          "charger_status": "Charger status sensor used to detect cable connection (e.g., sensor.abb_charging_state)",
+          "ev_soc_sensor": "Vehicle battery state of charge sensor in percent - requires vehicle integration",
+          "current_unit": "Unit in which the charger accepts current (most: Amperes)",
+          "status_charging_values": "List of values that mean charger is charging (comma separated, e.g., '4' for ABB or 'charging,Charging' for Wallbox)",
+          "status_connected_values": "List of values that mean cable is connected (comma separated, e.g., '1,2,3,4,5' for ABB)"
+        }
+      },
+      "grid_config": {
+        "title": "Grid Meter Configuration",
+        "description": "Configure sensors for monitoring grid consumption and solar production.\n\nIMPORTANT: Positive value (+) should mean import from grid, negative (-) export to grid. If reversed, check 'Invert sensor value'.",
+        "data": {
+          "grid_sensor": "Grid Meter (W)",
+          "grid_sensor_inverted": "Invert Sensor Value",
+          "use_grid_template": "Use Template Sensor",
+          "grid_template": "Template Code",
+          "solar_sensor": "Solar Production Sensor (W) [Optional]",
+          "tariff_sensor": "Tariff Block Sensor (1-5)"
+        },
+        "data_description": {
+          "grid_sensor": "Grid power sensor at main breaker (e.g., sensor.shelly_3em_total_active_power). Positive = import, negative = export.",
+          "grid_sensor_inverted": "Check if your meter returns positive for export (export = +, import = -)",
+          "use_grid_template": "For advanced users: combine multiple meters with Jinja2 template",
+          "grid_template": "Jinja2 template to calculate grid power (e.g., {{ states('sensor.meter1')|float + states('sensor.meter2')|float }})",
+          "solar_sensor": "Current solar production sensor in watts (leave empty if you don't have solar)",
+          "tariff_sensor": "Current tariff block sensor (1-5). For NMPT in Slovenia use Network Tariff integration. For single tariff create dummy sensor returning '1'."
+        }
+      },
+      "limits": {
+        "title": "Power Limits and Control Parameters",
+        "description": "Set safety limits and tariff limits for optimal charging.\n\nTARIFF BLOCKS:\n• Slovenia (NMPT): Set different limits for blocks 1-5\n• Single tariff: Set all blocks to same value\n• No tariff system: Use dummy sensor with fixed value '1'",
+        "data": {
+          "phases": "Number of Phases",
+          "max_fuse": "Main Fuse (A)",
           "buffer": "Safety Buffer (W)",
-          "control_interval": "Current adjustment interval (s)",
-          "auto_mode": "Default Mode on Plug-in",
-          "reset_on_unplug": "Reset Mode to OFF on Unplug",
-          "limit_block_1": "Limit Block 1 (W)",
-          "limit_block_2": "Limit Block 2 (W)",
-          "limit_block_3": "Limit Block 3 (W)",
-          "limit_block_4": "Limit Block 4 (W)",
-          "limit_block_5": "Limit Block 5 (W)"
+          "control_interval": "Current Increase Interval (s)",
+          "auto_mode": "Mode on Cable Connection",
+          "reset_on_unplug": "Reset Session on Unplug",
+          "limit_block_1": "Block 1 Limit (W)",
+          "limit_block_2": "Block 2 Limit (W)",
+          "limit_block_3": "Block 3 Limit (W)",
+          "limit_block_4": "Block 4 Limit (W)",
+          "limit_block_5": "Block 5 Limit (W)"
+        },
+        "data_description": {
+          "phases": "Number of phases in your installation (1 or 3)",
+          "max_fuse": "Main fuse rating in amperes (e.g., 25A)",
+          "buffer": "Safety power buffer to prevent breaker trip (recommended: 300-500W)",
+          "control_interval": "Time in seconds between current increases. Decrease happens immediately. (recommended: 30s)",
+          "auto_mode": "Which mode to activate automatically when cable is connected",
+          "reset_on_unplug": "If enabled, charging mode resets to OFF when cable is disconnected",
+          "limit_block_1": "NMPT Block 1 - highest tariff (e.g., 11500W for 5kW profile). For single tariff: your main power.",
+          "limit_block_2": "NMPT Block 2 (e.g., 8050W). For single tariff: same as block 1.",
+          "limit_block_3": "NMPT Block 3 (e.g., 5750W). For single tariff: same as block 1.",
+          "limit_block_4": "NMPT Block 4 (e.g., 4600W). For single tariff: same as block 1.",
+          "limit_block_5": "NMPT Block 5 - lowest tariff (e.g., 4600W). For single tariff: same as block 1."
         }
       }
     },
     "error": {
+      "cannot_connect": "Connection error",
+      "invalid_auth": "Invalid authentication",
       "unknown": "Unknown error"
     },
     "abort": {
-      "already_configured": "Device is already configured"
+      "already_configured": "Device already configured"
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "Configure EVSCI Settings",
-        "description": "Update limits and sensors here.",
+        "title": "Change EVSCI Settings",
+        "description": "Here you can change limits and sensors.",
         "data": {
-          "grid_sensor": "Grid Power Sensor (W)",
+          "charger_type": "Charger Type",
           "charger_switch": "Charger Switch",
-          "charger_current": "Charger Current Control (A)",
+          "charger_current": "Current Setting (A)",
           "charger_power": "Charger Power Sensor (W)",
-          "charger_status": "Charger Status (for plug-in detection)",
-          "solar_sensor": "Solar Power Sensor (W) [Optional]",
-          "ev_soc_sensor": "EV Battery Sensor (%) [Optional]",
-          "tariff_sensor": "Tariff Block Sensor",
-          "phases": "Number of Phases (1 or 3)",
-          "max_fuse": "Main Fuse Limit (A)",
+          "charger_status": "Charger Status (for plug detection)",
+          "ev_soc_sensor": "Vehicle Battery Sensor (%) [Optional]",
+          "current_unit": "Current Unit",
+          "status_charging_values": "Status Values - Charging",
+          "status_connected_values": "Status Values - Connected",
+          "grid_sensor": "Grid Meter (W)",
+          "grid_sensor_inverted": "Invert Sensor Value",
+          "use_grid_template": "Use Template Sensor",
+          "grid_template": "Template Code",
+          "solar_sensor": "Solar Production Sensor (W) [Optional]",
+          "tariff_sensor": "Tariff Block Sensor (1-5)",
+          "phases": "Number of Phases",
+          "max_fuse": "Main Fuse (A)",
           "buffer": "Safety Buffer (W)",
-          "control_interval": "Current adjustment interval (s)",
-          "auto_mode": "Default Mode on Plug-in",
-          "reset_on_unplug": "Reset Mode to OFF on Unplug",
-          "limit_block_1": "Limit Block 1 (W)",
-          "limit_block_2": "Limit Block 2 (W)",
-          "limit_block_3": "Limit Block 3 (W)",
-          "limit_block_4": "Limit Block 4 (W)",
-          "limit_block_5": "Limit Block 5 (W)"
+          "control_interval": "Current Increase Interval (s)",
+          "auto_mode": "Mode on Cable Connection",
+          "reset_on_unplug": "Reset Session on Unplug",
+          "limit_block_1": "Block 1 Limit (W)",
+          "limit_block_2": "Block 2 Limit (W)",
+          "limit_block_3": "Block 3 Limit (W)",
+          "limit_block_4": "Block 4 Limit (W)",
+          "limit_block_5": "Block 5 Limit (W)"
+        },
+        "data_description": {
+          "charger_type": "Your charger type (for correct presets)",
+          "charger_switch": "Entity to turn charging on/off",
+          "charger_current": "Entity to set current in amperes",
+          "charger_power": "Current charging power sensor in watts",
+          "charger_status": "Charger status sensor for cable detection",
+          "ev_soc_sensor": "Vehicle battery state of charge in percent",
+          "current_unit": "Unit in which charger accepts current",
+          "status_charging_values": "Values that mean charger is charging (comma separated)",
+          "status_connected_values": "Values that mean cable is connected (comma separated)",
+          "grid_sensor": "Grid power sensor. Positive = import, negative = export",
+          "grid_sensor_inverted": "If your meter has reverse logic (positive = export)",
+          "use_grid_template": "Use template to combine multiple meters",
+          "grid_template": "Jinja2 template to calculate grid power",
+          "solar_sensor": "Current solar production (leave empty if none)",
+          "tariff_sensor": "Current tariff block sensor (1-5)",
+          "phases": "Number of phases (1 or 3)",
+          "max_fuse": "Main fuse rating in amperes",
+          "buffer": "Safety buffer to prevent trip",
+          "control_interval": "Time between increases (decrease is immediate)",
+          "auto_mode": "Auto mode on cable connection",
+          "reset_on_unplug": "Reset mode on cable disconnect",
+          "limit_block_1": "NMPT Block 1 or main power for single tariff",
+          "limit_block_2": "NMPT Block 2 (or same as block 1)",
+          "limit_block_3": "NMPT Block 3 (or same as block 1)",
+          "limit_block_4": "NMPT Block 4 (or same as block 1)",
+          "limit_block_5": "NMPT Block 5 (or same as block 1)"
         }
       }
-    },
-    "error": {
-      "unknown": "Unknown error"
-    },
-    "abort": {
-      "already_configured": "Device is already configured"
     }
   }
 }
