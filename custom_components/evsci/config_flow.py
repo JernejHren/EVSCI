@@ -275,62 +275,6 @@ class EVSCIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             }
         )
 
-    def _get_charger_presets(self, charger_type):
-        """Vrne prednastavitve za različne tipe polnilnic."""
-        presets = {
-            "abb_terra": {
-                "unit": "A",
-                "charging_values": "4",  # State C2 (IEC 61851-1)
-                "connected_values": "1,2,3,4,5",  # Vsa stanja razen A
-            },
-            "generic": {
-                "unit": "A",
-                "charging_values": "charging,Charging,C",
-                "connected_values": "connected,Connected,B,B1,B2",
-            },
-            "goe": {
-                "unit": "A",
-                "charging_values": "2",  # go-eCharger status kode
-                "connected_values": "1,2",
-            },
-            "wallbox": {
-                "unit": "A",
-                "charging_values": "charging,Charging",
-                "connected_values": "waiting,connected,paused,Waiting,Connected,Paused",
-            },
-            "easee": {
-                "unit": "A",
-                "charging_values": "charging",
-                "connected_values": "ready_to_charge,awaiting_start",
-            },
-            "zappi": {
-                "unit": "A",
-                "charging_values": "EV Charging",
-                "connected_values": "EV Connected,EV Charging",
-            },
-            "evse_din": {
-                "unit": "A",
-                "charging_values": "C",
-                "connected_values": "B,B1,B2,C",
-            },
-            "openwb": {
-                "unit": "A",
-                "charging_values": "charging",
-                "connected_values": "connected,charging",
-            },
-            "tesla": {
-                "unit": "A",
-                "charging_values": "charging",
-                "connected_values": "connected,charging",
-            },
-            "other_custom": {
-                "unit": "A",
-                "charging_values": "",
-                "connected_values": "",
-            },
-        }
-        return presets.get(charger_type, presets["generic"])
-
     async def _auto_discover_charger_entities(self, charger_type):
         """Avtomatsko najde entitete za znane polnilnice."""
         import fnmatch
