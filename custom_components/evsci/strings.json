@@ -88,6 +88,7 @@
       "invalid_auth": "Invalid authentication",
       "unknown": "Unknown error",
       "grid_template_required": "Template code is required when template mode is enabled"
+      "unknown": "Unknown error"
     },
     "abort": {
       "already_configured": "Device already configured"
