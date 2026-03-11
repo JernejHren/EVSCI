@@ -86,6 +86,8 @@
     "error": {
       "cannot_connect": "Connection error",
       "invalid_auth": "Invalid authentication",
+      "unknown": "Unknown error",
+      "grid_template_required": "Template code is required when template mode is enabled"
       "unknown": "Unknown error"
     },
     "abort": {
@@ -154,6 +156,9 @@
           "limit_block_5": "NMPT Block 5 (or same as block 1)"
         }
       }
+    },
+    "error": {
+      "grid_template_required": "Template code is required when template mode is enabled"
     }
   }
 }

@@ -86,7 +86,8 @@
     "error": {
       "cannot_connect": "Napaka pri povezavi",
       "invalid_auth": "Napačna avtentikacija",
-      "unknown": "Neznana napaka"
+      "unknown": "Neznana napaka",
+      "grid_template_required": "Template koda je obvezna, če je vključena uporaba template senzorja"
     },
     "abort": {
       "already_configured": "Naprava je že konfigurirana"
@@ -154,6 +155,9 @@
           "limit_block_5": "NMPT Blok 5 (ali enako kot blok 1)"
         }
       }
+    },
+    "error": {
+      "grid_template_required": "Template koda je obvezna, če je vključena uporaba template senzorja"
     }
   }
 }
