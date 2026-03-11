@@ -163,8 +163,8 @@ class EVSCICoordinator(DataUpdateCoordinator):
         charging_str = o.get(CONF_STATUS_CHARGING_VALUES, d.get(CONF_STATUS_CHARGING_VALUES, "charging,Charging,C"))
         connected_str = o.get(CONF_STATUS_CONNECTED_VALUES, d.get(CONF_STATUS_CONNECTED_VALUES, "connected,Connected,B,B1,B2"))
         
-        self.status_charging_values = [v.strip() for v in charging_str.split(",") if v.strip()]
-        self.status_connected_values = [v.strip() for v in connected_str.split(",") if v.strip()]
+        self.status_charging_values = [v.strip().lower() for v in charging_str.split(",") if v.strip()]
+        self.status_connected_values = [v.strip().lower() for v in connected_str.split(",") if v.strip()]
         
         # Setup grid template if configured
         if self.use_grid_template:
@@ -201,7 +201,8 @@ class EVSCICoordinator(DataUpdateCoordinator):
         try:
             power = float(grid_state.state)
             return -power if self.grid_sensor_inverted else power
-        except:
+        except (ValueError, TypeError) as err:
+            _LOGGER.debug("EVSCI: Failed to parse grid sensor value '%s': %s", grid_state.state, err)
             return 0.0
 
     def _convert_current_to_amps(self, value):
@@ -228,14 +229,14 @@ class EVSCICoordinator(DataUpdateCoordinator):
         """Check if status indicates charging."""
         if not status_value:
             return False
-        status_str = str(status_value).strip()
+        status_str = str(status_value).strip().lower()
         return status_str in self.status_charging_values
 
     def _is_status_connected(self, status_value):
         """Check if status indicates cable connected."""
         if not status_value:
             return False
-        status_str = str(status_value).strip()
+        status_str = str(status_value).strip().lower()
         return status_str in self.status_connected_values
 
     def _is_schedule_active(self):

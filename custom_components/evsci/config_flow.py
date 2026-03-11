@@ -170,44 +170,48 @@ class EVSCIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_grid_config(self, user_input=None):
         """Korak 3: Konfiguracija merilcev omrežja."""
+        schema = self._get_grid_schema()
+        info_text = (
+            "Konfigurirajte senzorje omrežja.\n\n"
+            "POMEMBNO:\n"
+            "• Pozitivna vrednost (+) = uvoz iz omrežja\n"
+            "• Negativna vrednost (-) = izvoz v omrežje (presežek)\n\n"
+            "Če ima vaš merilec obratno logiko, označite 'Inverzna vrednost'.\n\n"
+            "Za napredne uporabnike: uporabite template za kombinacijo več senzorjev."
+        )
+
         if user_input is not None:
+            if user_input.get(CONF_USE_GRID_TEMPLATE) and not user_input.get(CONF_GRID_TEMPLATE):
+                return self.async_show_form(
+                    step_id="grid_config",
+                    data_schema=self.add_suggested_values_to_schema(schema, user_input),
+                    errors={"base": "grid_template_required"},
+                    description_placeholders={"info": info_text}
+                )
             self.grid_config = user_input
             return await self.async_step_limits()
-
-        schema = vol.Schema({
-            # --- MERILEC OMREŽJA ---
-            vol.Required(CONF_GRID_SENSOR): selector.EntitySelector(
-                selector.EntitySelectorConfig(domain="sensor", device_class="power")
-            ),
-            vol.Required(CONF_GRID_SENSOR_INVERTED, default=False): bool,
-            
-            # --- OPCIJSKI TEMPLATE (za kompleksne konfiguracije) ---
-            vol.Optional(CONF_USE_GRID_TEMPLATE, default=False): bool,
-            vol.Optional(CONF_GRID_TEMPLATE): selector.TemplateSelector(),
-            
-            # --- SOLAR (opcijsko) ---
-            vol.Optional(CONF_SOLAR_SENSOR): selector.EntitySelector(
-                selector.EntitySelectorConfig(domain="sensor", device_class="power")
-            ),
-            
-            # --- TARIFA ---
-            vol.Required(CONF_TARIFF_SENSOR): selector.EntitySelector(
-                selector.EntitySelectorConfig(domain="sensor")
-            ),
-        })
 
         return self.async_show_form(
             step_id="grid_config",
             data_schema=schema,
-            description_placeholders={
-                "info": "Konfigurirajte senzorje omrežja.\n\n"
-                        "POMEMBNO:\n"
-                        "• Pozitivna vrednost (+) = uvoz iz omrežja\n"
-                        "• Negativna vrednost (-) = izvoz v omrežje (presežek)\n\n"
-                        "Če ima vaš merilec obratno logiko, označite 'Inverzna vrednost'.\n\n"
-                        "Za napredne uporabnike: uporabite template za kombinacijo več senzorjev."
-            }
+            description_placeholders={"info": info_text}
         )
+
+    def _get_grid_schema(self):
+        return vol.Schema({
+            vol.Required(CONF_GRID_SENSOR): selector.EntitySelector(
+                selector.EntitySelectorConfig(domain="sensor", device_class="power")
+            ),
+            vol.Required(CONF_GRID_SENSOR_INVERTED, default=False): bool,
+            vol.Optional(CONF_USE_GRID_TEMPLATE, default=False): bool,
+            vol.Optional(CONF_GRID_TEMPLATE): selector.TemplateSelector(),
+            vol.Optional(CONF_SOLAR_SENSOR): selector.EntitySelector(
+                selector.EntitySelectorConfig(domain="sensor", device_class="power")
+            ),
+            vol.Required(CONF_TARIFF_SENSOR): selector.EntitySelector(
+                selector.EntitySelectorConfig(domain="sensor")
+            ),
+        })
 
     async def async_step_limits(self, user_input=None):
         """Korak 4: Meje moči in kontrolni parametri."""
@@ -274,62 +278,6 @@ class EVSCIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         "• Brez tarifnega sistema: uporabite dummy sensor s fiksno vrednostjo '1'"
             }
         )
-
-    def _get_charger_presets(self, charger_type):
-        """Vrne prednastavitve za različne tipe polnilnic."""
-        presets = {
-            "abb_terra": {
-                "unit": "A",
-                "charging_values": "4",  # State C2 (IEC 61851-1)
-                "connected_values": "1,2,3,4,5",  # Vsa stanja razen A
-            },
-            "generic": {
-                "unit": "A",
-                "charging_values": "charging,Charging,C",
-                "connected_values": "connected,Connected,B,B1,B2",
-            },
-            "goe": {
-                "unit": "A",
-                "charging_values": "2",  # go-eCharger status kode
-                "connected_values": "1,2",
-            },
-            "wallbox": {
-                "unit": "A",
-                "charging_values": "charging,Charging",
-                "connected_values": "waiting,connected,paused,Waiting,Connected,Paused",
-            },
-            "easee": {
-                "unit": "A",
-                "charging_values": "charging",
-                "connected_values": "ready_to_charge,awaiting_start",
-            },
-            "zappi": {
-                "unit": "A",
-                "charging_values": "EV Charging",
-                "connected_values": "EV Connected,EV Charging",
-            },
-            "evse_din": {
-                "unit": "A",
-                "charging_values": "C",
-                "connected_values": "B,B1,B2,C",
-            },
-            "openwb": {
-                "unit": "A",
-                "charging_values": "charging",
-                "connected_values": "connected,charging",
-            },
-            "tesla": {
-                "unit": "A",
-                "charging_values": "charging",
-                "connected_values": "connected,charging",
-            },
-            "other_custom": {
-                "unit": "A",
-                "charging_values": "",
-                "connected_values": "",
-            },
-        }
-        return presets.get(charger_type, presets["generic"])
 
     async def _auto_discover_charger_entities(self, charger_type):
         """Avtomatsko najde entitete za znane polnilnice."""
@@ -470,6 +418,15 @@ class EVSCIOptionsFlowHandler(config_entries.OptionsFlow):
     async def async_step_init(self, user_input=None):
         """Omogoči urejanje vseh nastavitev."""
         if user_input is not None:
+            if user_input.get(CONF_USE_GRID_TEMPLATE) and not user_input.get(CONF_GRID_TEMPLATE):
+                current_config = {**self.config_entry.data, **self.config_entry.options, **user_input}
+                schema = self._get_full_schema()
+                return self.async_show_form(
+                    step_id="init",
+                    data_schema=self.add_suggested_values_to_schema(schema, current_config),
+                    errors={"base": "grid_template_required"}
+                )
+
             # Ohranjanje opcijskih polj
             optional_fields = [CONF_SOLAR_SENSOR, CONF_EV_SOC_SENSOR, CONF_GRID_TEMPLATE]
             for key in optional_fields:
