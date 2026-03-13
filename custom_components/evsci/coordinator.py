@@ -61,6 +61,17 @@ MIN_AMPS = 6
 STALE_DATA_THRESHOLD = 60.0
 RAMP_UP_STEP = 2.0
 
+# IEC 61851-1 state mapping (ABB Terra AC and similar)
+IEC_STATE_MAPPING = {
+    "state a": "0",
+    "state b1": "1",
+    "state b2": "2",
+    "state c1": "3",
+    "state c2": "4",
+    "state d": "5",
+    "state f": "5",
+}
+
 
 class EVSCICoordinator(DataUpdateCoordinator):
     """Enhanced coordinator with universal charger support."""
@@ -227,7 +238,7 @@ class EVSCICoordinator(DataUpdateCoordinator):
             return amps
 
     def _status_matches(self, status_value, configured_values):
-        """Match charger status against configured values (exact, token and ABB-like state codes)."""
+        """Match charger status with exact, token, IEC-state and phrase strategies."""
         if not status_value:
             return False
 
@@ -239,17 +250,20 @@ class EVSCICoordinator(DataUpdateCoordinator):
             if not configured:
                 continue
 
+            # 1) Exact match
             if status_str == configured:
                 return True
 
+            # 2) Token match
             if configured in status_tokens:
                 return True
 
-            # ABB/IEC style values such as "State B1 - ..." should match configured "1"
-            if configured.isdigit() and re.search(rf"\b[a-z]+{re.escape(configured)}\b", status_str):
-                return True
+            # 3) IEC 61851-1 mapping (e.g. "State B1 - ..." => "1")
+            for state_text, state_code in IEC_STATE_MAPPING.items():
+                if state_text in status_str and configured == state_code:
+                    return True
 
-            # Phrase fallback for multi-word statuses (avoids single-letter false positives)
+            # 4) Phrase fallback for multi-word statuses (avoid 1-char false positives)
             if len(configured) > 2 and configured in status_str:
                 return True
 
@@ -260,13 +274,12 @@ class EVSCICoordinator(DataUpdateCoordinator):
         return self._status_matches(status_value, self.status_charging_values)
 
     def _is_status_connected(self, status_value):
-        """Check if status indicates cable connected."""
+        """Check if cable is connected with smart ABB/IEC defaults."""
         if not status_value:
             return False
 
         status_str = str(status_value).strip().lower()
 
-        # Keep compatibility with v1.3 behavior: most non-idle states imply cable connected.
         disconnected_markers = {
             "0",
             "state a",
@@ -276,11 +289,12 @@ class EVSCICoordinator(DataUpdateCoordinator):
             "unknown",
             "false",
             "no cable plugged",
+            "no cable",
+            "disconnected",
         }
         if status_str in disconnected_markers:
             return False
 
-        # Explicit configured matching first.
         if self._status_matches(status_value, self.status_connected_values):
             return True
 
@@ -288,11 +302,10 @@ class EVSCICoordinator(DataUpdateCoordinator):
         if self._status_matches(status_value, self.status_charging_values):
             return True
 
-        # ABB/IEC text statuses like "State B1 - EV Plug in, Pending authorization"
-        # should count as connected unless they are explicit idle (State A).
-        match = re.search(r"\bstate\s+([a-z])([0-9]*)\b", status_str)
-        if match:
-            return match.group(1) != "a"
+        # IEC fallback: any state except A is connected.
+        match = re.search(r"\bstate\s+([a-z])", status_str)
+        if match and match.group(1) != "a":
+            return True
 
         return False
 
