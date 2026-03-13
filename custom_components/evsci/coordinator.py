@@ -4,6 +4,7 @@ import math
 import datetime
 import time
 import asyncio
+import re
 from datetime import timedelta
 from homeassistant.util import dt as dt_util
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
@@ -225,19 +226,75 @@ class EVSCICoordinator(DataUpdateCoordinator):
         else:  # "A"
             return amps
 
-    def _is_status_charging(self, status_value):
-        """Check if status indicates charging."""
+    def _status_matches(self, status_value, configured_values):
+        """Match charger status against configured values (exact, token and ABB-like state codes)."""
         if not status_value:
             return False
+
         status_str = str(status_value).strip().lower()
-        return status_str in self.status_charging_values
+        status_tokens = set(re.findall(r"[a-z0-9]+", status_str))
+
+        for value in configured_values:
+            configured = str(value).strip().lower()
+            if not configured:
+                continue
+
+            if status_str == configured:
+                return True
+
+            if configured in status_tokens:
+                return True
+
+            # ABB/IEC style values such as "State B1 - ..." should match configured "1"
+            if configured.isdigit() and re.search(rf"\b[a-z]+{re.escape(configured)}\b", status_str):
+                return True
+
+            # Phrase fallback for multi-word statuses (avoids single-letter false positives)
+            if len(configured) > 2 and configured in status_str:
+                return True
+
+        return False
+
+    def _is_status_charging(self, status_value):
+        """Check if status indicates charging."""
+        return self._status_matches(status_value, self.status_charging_values)
 
     def _is_status_connected(self, status_value):
         """Check if status indicates cable connected."""
         if not status_value:
             return False
+
         status_str = str(status_value).strip().lower()
-        return status_str in self.status_connected_values
+
+        # Keep compatibility with v1.3 behavior: most non-idle states imply cable connected.
+        disconnected_markers = {
+            "0",
+            "state a",
+            "state a - idle",
+            "idle",
+            "unavailable",
+            "unknown",
+            "false",
+            "no cable plugged",
+        }
+        if status_str in disconnected_markers:
+            return False
+
+        # Explicit configured matching first.
+        if self._status_matches(status_value, self.status_connected_values):
+            return True
+
+        # Charging state always implies an active cable connection.
+        if self._status_matches(status_value, self.status_charging_values):
+            return True
+
+        # ABB/IEC text statuses like "State B1 - EV Plug in, Pending authorization"
+        # should count as connected unless they are explicit idle (State A).
+        match = re.search(r"\bstate\s+([a-z])([0-9]*)\b", status_str)
+        if match:
+            return match.group(1) != "a"
+
+        return False
 
     def _is_schedule_active(self):
         now = dt_util.now().time()
