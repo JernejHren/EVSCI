@@ -194,6 +194,58 @@ class EVSCICoordinator(DataUpdateCoordinator):
             5: o.get(CONF_LIMIT_BLOCK_5, d.get(CONF_LIMIT_BLOCK_5, 6000)),
         }
 
+    def _resolve_stop_button_entity(self) -> str | None:
+        """Resolve stop-button entity from configured start-button entity."""
+        if not self.charger_switch_entity or not self.charger_switch_entity.startswith("button."):
+            return None
+
+        start_entity = self.charger_switch_entity
+        if "start_charging" in start_entity:
+            return start_entity.replace("start_charging", "stop_charging")
+        if "start" in start_entity:
+            return start_entity.replace("start", "stop", 1)
+        return None
+
+    async def _async_start_session(self) -> None:
+        """Start charging session for switch- and button-based chargers."""
+        if self.charger_switch_entity.startswith("button."):
+            await self.hass.services.async_call(
+                "button",
+                "press",
+                {ATTR_ENTITY_ID: self.charger_switch_entity},
+            )
+            return
+
+        await self.hass.services.async_call(
+            "switch",
+            SERVICE_TURN_ON,
+            {ATTR_ENTITY_ID: self.charger_switch_entity},
+        )
+
+    async def _async_stop_session(self) -> None:
+        """Stop charging session for switch- and button-based chargers."""
+        if self.charger_switch_entity.startswith("button."):
+            stop_button_entity = self._resolve_stop_button_entity()
+            if stop_button_entity:
+                await self.hass.services.async_call(
+                    "button",
+                    "press",
+                    {ATTR_ENTITY_ID: stop_button_entity},
+                )
+            else:
+                _LOGGER.warning(
+                    "EVSCI: Charger control entity is button-based, but stop button "
+                    "could not be inferred from '%s'.",
+                    self.charger_switch_entity,
+                )
+            return
+
+        await self.hass.services.async_call(
+            "switch",
+            SERVICE_TURN_OFF,
+            {ATTR_ENTITY_ID: self.charger_switch_entity},
+        )
+
     def _get_grid_power(self):
         """Enhanced grid power reading with template support and inversion."""
         if self.use_grid_template and self._grid_template:
@@ -599,11 +651,7 @@ class EVSCICoordinator(DataUpdateCoordinator):
         if should_be_active and not self.is_charging:
             if target_amps > 0:
                 _LOGGER.info("EVSCI: Start Session (Switch ON)")
-                await self.hass.services.async_call(
-                    "switch",
-                    SERVICE_TURN_ON,
-                    {ATTR_ENTITY_ID: self.charger_switch_entity}
-                )
+                await self._async_start_session()
                 if target_amps > 0:
                     await asyncio.sleep(1)
                     target_value = self._convert_amps_to_current(target_amps)
@@ -619,11 +667,7 @@ class EVSCICoordinator(DataUpdateCoordinator):
         elif not should_be_active and self.is_charging:
             if self._cable_connected:
                 _LOGGER.info("EVSCI: End Session (Switch OFF)")
-                await self.hass.services.async_call(
-                    "switch",
-                    SERVICE_TURN_OFF,
-                    {ATTR_ENTITY_ID: self.charger_switch_entity}
-                )
+                await self._async_stop_session()
             else:
                 _LOGGER.debug("EVSCI: Session inactive, cable unplugged. Skip switch OFF.")
 

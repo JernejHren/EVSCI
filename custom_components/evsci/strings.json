@@ -12,7 +12,7 @@
         "title": "Charger Configuration",
         "description": "Select your charger entities. Status values are automatically set based on the selected type.",
         "data": {
-          "charger_switch": "Charger Switch",
+          "charger_switch": "Charger Control",
           "charger_current": "Current Setting (A)",
           "charger_power": "Charger Power Sensor (W)",
           "charger_status": "Charger Status (for plug detection)",
@@ -22,7 +22,7 @@
           "status_connected_values": "Status Values - Connected"
         },
         "data_description": {
-          "charger_switch": "Entity to turn charging on/off (e.g., switch.abb_start_stop_charging)",
+          "charger_switch": "Entity to start charging (switch or button, e.g., button.abb_start_charging)",
           "charger_current": "Entity to set current in amperes (e.g., number.abb_charging_current_limit)",
           "charger_power": "Current charging power sensor in watts (e.g., sensor.abb_active_power)",
           "charger_status": "Charger status sensor used to detect cable connection (e.g., sensor.abb_charging_state)",
@@ -88,7 +88,6 @@
       "invalid_auth": "Invalid authentication",
       "unknown": "Unknown error",
       "grid_template_required": "Template code is required when template mode is enabled"
-      "unknown": "Unknown error"
     },
     "abort": {
       "already_configured": "Device already configured"
@@ -101,7 +100,7 @@
         "description": "Here you can change limits and sensors.",
         "data": {
           "charger_type": "Charger Type",
-          "charger_switch": "Charger Switch",
+          "charger_switch": "Charger Control",
           "charger_current": "Current Setting (A)",
           "charger_power": "Charger Power Sensor (W)",
           "charger_status": "Charger Status (for plug detection)",
@@ -129,7 +128,7 @@
         },
         "data_description": {
           "charger_type": "Your charger type (for correct presets)",
-          "charger_switch": "Entity to turn charging on/off",
+          "charger_switch": "Entity used to start charging (switch or button). For button-based chargers, EVSCI auto-detects a matching stop button.",
           "charger_current": "Entity to set current in amperes",
           "charger_power": "Current charging power sensor in watts",
           "charger_status": "Charger status sensor for cable detection",
