@@ -12,7 +12,7 @@
         "title": "Konfiguracija polnilnice",
         "description": "Izberite entitete vaše polnilnice. Status vrednosti so avtomatsko nastavljene glede na izbran tip.",
         "data": {
-          "charger_switch": "Stikalo polnilnice",
+          "charger_switch": "Krmiljenje polnilnice",
           "charger_current": "Nastavitev toka (A)",
           "charger_power": "Senzor moči polnilnice (W)",
           "charger_status": "Status polnilnice (za zaznavo priklopa)",
@@ -22,7 +22,7 @@
           "status_connected_values": "Vrednosti statusa - priključeno"
         },
         "data_description": {
-          "charger_switch": "Entiteta za vklop/izklop polnjenja (npr. switch.abb_start_stop_charging)",
+          "charger_switch": "Entiteta za zagon polnjenja (switch ali button, npr. button.abb_start_charging)",
           "charger_current": "Entiteta za nastavitev toka v amperih (npr. number.abb_charging_current_limit)",
           "charger_power": "Senzor trenutne moči polnjenja v wattih (npr. sensor.abb_active_power)",
           "charger_status": "Senzor stanja polnilnice, uporabljen za zaznavanje priklopa kabla (npr. sensor.abb_charging_state)",
@@ -100,7 +100,7 @@
         "description": "Tukaj lahko spremenite limite in senzorje.",
         "data": {
           "charger_type": "Tip polnilnice",
-          "charger_switch": "Stikalo polnilnice",
+          "charger_switch": "Krmiljenje polnilnice",
           "charger_current": "Nastavitev toka (A)",
           "charger_power": "Senzor moči polnilnice (W)",
           "charger_status": "Status polnilnice (za zaznavo priklopa)",
@@ -128,7 +128,7 @@
         },
         "data_description": {
           "charger_type": "Tip vaše polnilnice (za pravilne prednastavitve)",
-          "charger_switch": "Entiteta za vklop/izklop polnjenja",
+          "charger_switch": "Entiteta za zagon polnjenja (switch ali button). Pri button polnilnicah EVSCI poskusi samodejno najti pripadajoč stop button.",
           "charger_current": "Entiteta za nastavitev toka v amperih",
           "charger_power": "Senzor trenutne moči polnjenja v wattih",
           "charger_status": "Senzor stanja polnilnice za zaznavanje priklopa kabla",

@@ -119,7 +119,7 @@ class EVSCIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             # --- OBVEZNI SENZORJI POLNILNICE ---
             vol.Required(CONF_CHARGER_SWITCH): selector.EntitySelector(
                 selector.EntitySelectorConfig(
-                    domain="switch",
+                    domain=["switch", "button"],
                 )
             ),
             vol.Required(CONF_CHARGER_CURRENT): selector.EntitySelector(
@@ -286,7 +286,12 @@ class EVSCIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         # Definiraj vzorce iskanja za vsak tip polnilnice
         search_patterns = {
             "abb_terra": {
-                "switch": ["switch.*abb*start*stop*", "switch.*abb*charging"],
+                "switch": [
+                    "button.*abb*start*charging*",
+                    "button.*abb*start*",
+                    "switch.*abb*start*stop*",
+                    "switch.*abb*charging",
+                ],
                 "current": ["number.*abb*current*limit"],
                 "power": ["sensor.*abb*active*power", "sensor.*abb*power"],
                 "status": ["sensor.*abb*charging*state", "sensor.*abb*state"],
@@ -468,7 +473,7 @@ class EVSCIOptionsFlowHandler(config_entries.OptionsFlow):
             
             # Entitete polnilnice
             vol.Required(CONF_CHARGER_SWITCH): selector.EntitySelector(
-                selector.EntitySelectorConfig(domain="switch")
+                selector.EntitySelectorConfig(domain=["switch", "button"])
             ),
             vol.Required(CONF_CHARGER_CURRENT): selector.EntitySelector(
                 selector.EntitySelectorConfig(domain=["number", "select"])
