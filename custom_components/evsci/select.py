@@ -2,6 +2,7 @@
 from homeassistant.components.select import SelectEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -16,7 +17,7 @@ async def async_setup_entry(
     coordinator = hass.data[DOMAIN][entry.entry_id]
     async_add_entities([EVSCIModeSelect(coordinator)], True)
 
-class EVSCIModeSelect(CoordinatorEntity, SelectEntity):
+class EVSCIModeSelect(CoordinatorEntity, SelectEntity, RestoreEntity):
     """Entiteta za izbiro načina polnjenja."""
 
     _attr_has_entity_name = True
@@ -28,6 +29,15 @@ class EVSCIModeSelect(CoordinatorEntity, SelectEntity):
         super().__init__(coordinator)
         self._attr_unique_id = f"{coordinator.entry.entry_id}_mode_select"
 
+    async def async_added_to_hass(self) -> None:
+        """Ob zagonu obnovi zadnji izbran način."""
+        await super().async_added_to_hass()
+        last_state = await self.async_get_last_state()
+        if last_state and last_state.state in MODES:
+            self.coordinator.selected_mode = last_state.state
+            await self.coordinator.async_refresh()
+            self.async_write_ha_state()
+
     @property
     def current_option(self) -> str | None:
         """Vrne trenutno izbran način iz coordinatorja."""
@@ -38,4 +48,5 @@ class EVSCIModeSelect(CoordinatorEntity, SelectEntity):
     async def async_select_option(self, option: str) -> None:
         """Uporabnik spremeni način."""
         self.coordinator.set_mode(option)
+        await self.coordinator.async_refresh()
         self.async_write_ha_state()

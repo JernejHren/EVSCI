@@ -5,7 +5,10 @@ DOMAIN = "evsci"
 # Konfiguracijski ključi - Senzorji
 CONF_GRID_SENSOR = "grid_sensor"
 CONF_SOLAR_SENSOR = "solar_sensor"
+# Legacy (switch-based control)
 CONF_CHARGER_SWITCH = "charger_switch"
+CONF_CHARGER_START_BUTTON = "charger_start_button"
+CONF_CHARGER_STOP_BUTTON = "charger_stop_button"
 CONF_CHARGER_CURRENT = "charger_current"
 CONF_CHARGER_POWER = "charger_power"
 CONF_CHARGER_STATUS = "charger_status"

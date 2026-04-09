@@ -6,7 +6,8 @@
         "description": "Connect your sensors. Solar sensor field can be left empty.",
         "data": {
           "grid_sensor": "Grid Power Sensor (W)",
-          "charger_switch": "Charger Switch",
+          "charger_start_button": "Charger Start Button",
+          "charger_stop_button": "Charger Stop Button",
           "charger_current": "Charger Current Control (A)",
           "charger_power": "Charger Power Sensor (W)",
           "charger_status": "Charger Status (for plug-in detection)",
@@ -41,7 +42,8 @@
         "description": "Update limits and sensors here.",
         "data": {
           "grid_sensor": "Grid Power Sensor (W)",
-          "charger_switch": "Charger Switch",
+          "charger_start_button": "Charger Start Button",
+          "charger_stop_button": "Charger Stop Button",
           "charger_current": "Charger Current Control (A)",
           "charger_power": "Charger Power Sensor (W)",
           "charger_status": "Charger Status (for plug-in detection)",

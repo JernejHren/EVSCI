@@ -10,7 +10,7 @@ from homeassistant.util import dt as dt_util
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import SERVICE_TURN_ON, SERVICE_TURN_OFF, ATTR_ENTITY_ID
+from homeassistant.const import ATTR_ENTITY_ID
 from homeassistant.components.number import SERVICE_SET_VALUE
 
 from .const import (
@@ -25,6 +25,8 @@ from .const import (
     CONF_GRID_SENSOR,
     CONF_SOLAR_SENSOR,
     CONF_TARIFF_SENSOR,
+    CONF_CHARGER_START_BUTTON,
+    CONF_CHARGER_STOP_BUTTON,
     CONF_CHARGER_SWITCH,
     CONF_CHARGER_CURRENT,
     CONF_CHARGER_POWER,
@@ -66,6 +68,11 @@ class EVSCICoordinator(DataUpdateCoordinator):
         self.selected_mode = MODE_OFF
         self.calculated_amp = 0
         self.is_charging = False
+        self._session_active = False
+        self._pv_only_paused = False
+        # Označi, da je aktivna seja že dejansko tekla (>=6A / realna moč),
+        # da lahko ločimo "resume iz pavze" od prvega zagona.
+        self._session_had_active_charge = False
         
         self.user_target_soc = 100 
         
@@ -96,6 +103,9 @@ class EVSCICoordinator(DataUpdateCoordinator):
         self.grid_entity = o.get(CONF_GRID_SENSOR, d.get(CONF_GRID_SENSOR))
         self.solar_entity = o.get(CONF_SOLAR_SENSOR, d.get(CONF_SOLAR_SENSOR))
         self.tariff_entity = o.get(CONF_TARIFF_SENSOR, d.get(CONF_TARIFF_SENSOR))
+        self.charger_start_button_entity = o.get(CONF_CHARGER_START_BUTTON, d.get(CONF_CHARGER_START_BUTTON))
+        self.charger_stop_button_entity = o.get(CONF_CHARGER_STOP_BUTTON, d.get(CONF_CHARGER_STOP_BUTTON))
+        # Legacy switch support for backward compatibility with old entries.
         self.charger_switch_entity = o.get(CONF_CHARGER_SWITCH, d.get(CONF_CHARGER_SWITCH))
         self.charger_current_entity = o.get(CONF_CHARGER_CURRENT, d.get(CONF_CHARGER_CURRENT))
         self.charger_power_entity = o.get(CONF_CHARGER_POWER, d.get(CONF_CHARGER_POWER))
@@ -170,8 +180,19 @@ class EVSCICoordinator(DataUpdateCoordinator):
         charger_current_state = self.hass.states.get(self.charger_current_entity)
         current_hw_amps = float(charger_current_state.state) if charger_current_state and charger_current_state.state.replace('.','').isdigit() else 6.0
         
-        switch_state = self.hass.states.get(self.charger_switch_entity)
-        self.is_charging = (switch_state.state == "on") if switch_state else False
+        switch_state = self.hass.states.get(self.charger_switch_entity) if self.charger_switch_entity else None
+        is_charging_from_switch = (switch_state.state == "on") if switch_state else False
+        is_charging_from_power = charger_real_power > 50.0
+        self.is_charging = self._session_active or is_charging_from_switch or is_charging_from_power
+
+        # Spomin trenutne seje: ali je polnjenje že dejansko stabilno steklo.
+        # Ne uporabimo samo nastavljenega toka, ker je po startu lahko kratek zamik
+        # (tok je 6A, realna moč pa še ni narasla).
+        stable_min_charge_w = MIN_AMPS * self.power_per_amp * 0.5
+        if self.is_charging and charger_real_power >= stable_min_charge_w:
+            self._session_had_active_charge = True
+        elif not self.is_charging:
+            self._session_had_active_charge = False
 
         current_soc = 0
         soc_is_valid = False
@@ -204,7 +225,12 @@ class EVSCICoordinator(DataUpdateCoordinator):
                 is_idle = current_status_val in ["0", "State A - Idle", "unavailable", "unknown", "False", "No cable plugged"]
                 is_connected_now = not is_idle
 
-                if is_connected_now and not self._cable_connected:
+                # Prvi prebran status po restartu uporabimo samo za inicializacijo
+                # (brez "plug event"), sicer bi ob zagonu prepisali uporabniški način.
+                if self._last_charger_status_val is None:
+                    self._cable_connected = is_connected_now
+                    self._last_charger_status_val = current_status_val
+                elif is_connected_now and not self._cable_connected:
                     _LOGGER.info(f"EVSCI: Priklop kabla! Resetiram sejo.")
                     self.reset_session_flag = True
                     if self.auto_mode_on_plugin != MODE_NO_CHANGE:
@@ -213,6 +239,7 @@ class EVSCICoordinator(DataUpdateCoordinator):
 
                 elif not is_connected_now and self._cable_connected:
                     _LOGGER.info("EVSCI: Odklop kabla!")
+                    self._session_active = False
                     if self.reset_on_unplug:
                         self.selected_mode = MODE_OFF
                         self.async_set_updated_data(self.data)
@@ -272,6 +299,7 @@ class EVSCICoordinator(DataUpdateCoordinator):
         # --- 6. IZRAČUN CILJNEGA TOKA ---
         target_mode_amps = 0
         should_session_be_active = False
+        excess_w = 0.0
 
         if should_stop_session: # SoC Limit
             target_mode_amps = 0
@@ -290,6 +318,10 @@ class EVSCICoordinator(DataUpdateCoordinator):
 
             elif self.selected_mode in [MODE_PV_ONLY, MODE_MIN_PV]:
                 excess_w = charger_real_power - grid_power
+                if self.selected_mode == MODE_PV_ONLY and self._pv_only_paused:
+                    # Med pavzo ne zaupamo nujno senzorju moči polnilnice,
+                    # ker lahko zamuja in navidezno doda ~4 kW "viska".
+                    excess_w = max(0.0, -grid_power)
                 solar_amps = math.floor(excess_w / self.power_per_amp)
                 if self.selected_mode == MODE_PV_ONLY:
                     target_mode_amps = solar_amps
@@ -311,7 +343,23 @@ class EVSCICoordinator(DataUpdateCoordinator):
         else:
             candidate_amps = min(target_mode_amps, amps_limit_maintain)
 
-        # A. ZMANJŠEVANJE?
+        pv_only_keepalive_w = MIN_AMPS * self.power_per_amp
+        pv_only_min_start_w = pv_only_keepalive_w + self.buffer_watts
+        pv_only_up_amps = max(0, math.floor((excess_w - self.buffer_watts) / self.power_per_amp))
+
+        # Po pavzi v aktivni PV-only seji dovolimo ponovni zagon sele,
+        # ko je spet na voljo minimum za 6A plus buffer.
+        is_pv_only_waiting_for_resume_surplus = (
+            self.selected_mode == MODE_PV_ONLY
+            and self._pv_only_paused
+            and excess_w < pv_only_min_start_w
+        )
+        if is_pv_only_waiting_for_resume_surplus:
+            candidate_amps = 0
+
+        # PV only uporablja isto logiko vzdrževanja kot dynamic:
+        # buffer velja samo za dvig toka in za ponovni start iz pavze,
+        # ne pa za ohranjanje že doseženega toka.
         if candidate_amps < current_hw_amps:
             # Če smo OFF, ne čakamo intervala (varnost pri vklopu), ampak takoj vzamemo kandidata.
             # Če smo ON, preverimo emergency.
@@ -344,15 +392,30 @@ class EVSCICoordinator(DataUpdateCoordinator):
         elif candidate_amps > current_hw_amps:
             # Preveri Green Zone
             safe_target_up = min(target_mode_amps, amps_limit_increase)
+            if self.selected_mode == MODE_PV_ONLY:
+                # Histereza: za vsak dvig toka v PV only zahtevamo še buffer.
+                safe_target_up = min(safe_target_up, pv_only_up_amps)
             
             if safe_target_up > current_hw_amps:
                 time_since_change = now_time - self._last_amp_change_time
                 is_startup = (current_hw_amps < MIN_AMPS and safe_target_up >= MIN_AMPS)
+                is_pv_only_start_blocked = (
+                    self.selected_mode == MODE_PV_ONLY
+                    and current_hw_amps < MIN_AMPS
+                    and (
+                        not self.is_charging
+                        or self._session_had_active_charge
+                    )
+                    and excess_w < pv_only_min_start_w
+                )
                 
                 # POPRAVEK: Tudi pri startupu moramo spoštovati interval, RAZEN če je polnilnica OFF.
                 # Če je polnilnica OFF, dovolimo takojšen izračun, da lahko vklopi.
-                
-                if not self.is_charging:
+
+                if is_pv_only_start_blocked:
+                    adjusted_amps = 0
+
+                elif not self.is_charging:
                     # Hladen zagon: Dovolimo takoj
                     adjusted_amps = safe_target_up if safe_target_up < MIN_AMPS else MIN_AMPS
                 
@@ -373,25 +436,36 @@ class EVSCICoordinator(DataUpdateCoordinator):
         if adjusted_amps < MIN_AMPS:
             adjusted_amps = 0
 
+        if self.selected_mode != MODE_PV_ONLY or not should_session_be_active:
+            self._pv_only_paused = False
+        elif adjusted_amps == 0 and (
+            self._pv_only_paused
+            or current_hw_amps >= MIN_AMPS
+            or charger_real_power >= stable_min_charge_w
+        ):
+            self._pv_only_paused = True
+        elif self._pv_only_paused and excess_w >= pv_only_min_start_w and adjusted_amps >= MIN_AMPS:
+            self._pv_only_paused = False
+
         self.calculated_amp = adjusted_amps
         
-        # --- 8. ODLOČANJE O STANJU STIKALA ---
-        final_switch_state = False
+        # --- 8. ODLOČANJE O STANJU POLNILNE SEJE ---
+        final_session_active = False
         
         if self.is_charging:
             # Če je ON, ostane ON, dokler način želi (tudi pri 0A)
             if should_session_be_active:
-                final_switch_state = True
+                final_session_active = True
             else:
-                final_switch_state = False 
+                final_session_active = False
         else:
             # Če je OFF, se vklopi SAMO če imamo dovolj toka (Start Threshold)
             if should_session_be_active and adjusted_amps >= MIN_AMPS:
-                final_switch_state = True
+                final_session_active = True
             else:
-                final_switch_state = False # Čakamo na pogoje
+                final_session_active = False  # Čakamo na pogoje
 
-        await self._apply_changes(adjusted_amps, final_switch_state, current_hw_amps)
+        await self._apply_changes(adjusted_amps, final_session_active, current_hw_amps)
 
         return {
             "grid_power": grid_power,
@@ -418,18 +492,49 @@ class EVSCICoordinator(DataUpdateCoordinator):
 
         if should_be_active and not self.is_charging:
              if target_amps > 0: # Start Threshold
-                 _LOGGER.info("EVSCI: Start Session (Switch ON)")
-                 await self.hass.services.async_call("switch", SERVICE_TURN_ON, {ATTR_ENTITY_ID: self.charger_switch_entity})
+                 _LOGGER.info("EVSCI: Start Session (Button PRESS)")
+                 await self._async_start_session()
                  if target_amps > 0:
                      await asyncio.sleep(1)
                      await self.hass.services.async_call("number", SERVICE_SET_VALUE, {ATTR_ENTITY_ID: self.charger_current_entity, "value": target_amps})
              
         elif not should_be_active and self.is_charging:
              if self._cable_connected:
-                 _LOGGER.info("EVSCI: End Session (Switch OFF)")
-                 await self.hass.services.async_call("switch", SERVICE_TURN_OFF, {ATTR_ENTITY_ID: self.charger_switch_entity})
+                 _LOGGER.info("EVSCI: End Session (Button PRESS)")
+                 await self._async_stop_session()
              else:
-                 _LOGGER.debug("EVSCI: Session inactive, cable unplugged. Skip switch OFF.")
+                 _LOGGER.debug("EVSCI: Session inactive, cable unplugged. Skip stop.")
+
+    async def _async_press_button(self, entity_id):
+        if not entity_id:
+            return
+        await self.hass.services.async_call(
+            "button",
+            "press",
+            {ATTR_ENTITY_ID: entity_id},
+        )
+
+    async def _async_start_session(self):
+        if self.charger_start_button_entity:
+            await self._async_press_button(self.charger_start_button_entity)
+            self._session_active = True
+            return
+        if self.charger_switch_entity:
+            await self.hass.services.async_call("switch", "turn_on", {ATTR_ENTITY_ID: self.charger_switch_entity})
+            self._session_active = True
+            return
+        _LOGGER.warning("EVSCI: Missing charger start control entity.")
+
+    async def _async_stop_session(self):
+        if self.charger_stop_button_entity:
+            await self._async_press_button(self.charger_stop_button_entity)
+            self._session_active = False
+            return
+        if self.charger_switch_entity:
+            await self.hass.services.async_call("switch", "turn_off", {ATTR_ENTITY_ID: self.charger_switch_entity})
+            self._session_active = False
+            return
+        _LOGGER.warning("EVSCI: Missing charger stop control entity.")
 
     def _get_float_state(self, entity_id):
         if not entity_id: return 0.0

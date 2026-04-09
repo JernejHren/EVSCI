@@ -3,6 +3,7 @@ import datetime
 from homeassistant.components.time import TimeEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
@@ -17,7 +18,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
         EVSCIScheduleEnd(coordinator),
     ], True)
 
-class EVSCIScheduleStart(CoordinatorEntity, TimeEntity):
+class EVSCIScheduleStart(CoordinatorEntity, TimeEntity, RestoreEntity):
     """Ura za začetek polnjenja."""
     _attr_has_entity_name = True
     _attr_name = "Schedule Start"
@@ -26,6 +27,18 @@ class EVSCIScheduleStart(CoordinatorEntity, TimeEntity):
     def __init__(self, coordinator):
         super().__init__(coordinator)
         self._attr_unique_id = f"{coordinator.entry.entry_id}_schedule_start"
+
+    async def async_added_to_hass(self) -> None:
+        """Ob zagonu obnovi zadnjo nastavljeno uro začetka."""
+        await super().async_added_to_hass()
+        last_state = await self.async_get_last_state()
+        if last_state and last_state.state not in ("unknown", "unavailable"):
+            try:
+                self.coordinator.schedule_start = datetime.time.fromisoformat(last_state.state)
+                await self.coordinator.async_refresh()
+                self.async_write_ha_state()
+            except ValueError:
+                pass
 
     @property
     def native_value(self) -> datetime.time | None:
@@ -38,7 +51,7 @@ class EVSCIScheduleStart(CoordinatorEntity, TimeEntity):
         # Sproži posodobitev, da se logika takoj preračuna
         await self.coordinator.async_refresh()
 
-class EVSCIScheduleEnd(CoordinatorEntity, TimeEntity):
+class EVSCIScheduleEnd(CoordinatorEntity, TimeEntity, RestoreEntity):
     """Ura za konec polnjenja."""
     _attr_has_entity_name = True
     _attr_name = "Schedule End"
@@ -47,6 +60,18 @@ class EVSCIScheduleEnd(CoordinatorEntity, TimeEntity):
     def __init__(self, coordinator):
         super().__init__(coordinator)
         self._attr_unique_id = f"{coordinator.entry.entry_id}_schedule_end"
+
+    async def async_added_to_hass(self) -> None:
+        """Ob zagonu obnovi zadnjo nastavljeno uro konca."""
+        await super().async_added_to_hass()
+        last_state = await self.async_get_last_state()
+        if last_state and last_state.state not in ("unknown", "unavailable"):
+            try:
+                self.coordinator.schedule_end = datetime.time.fromisoformat(last_state.state)
+                await self.coordinator.async_refresh()
+                self.async_write_ha_state()
+            except ValueError:
+                pass
 
     @property
     def native_value(self) -> datetime.time | None:

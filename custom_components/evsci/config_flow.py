@@ -8,7 +8,8 @@ from .const import (
     DOMAIN,
     CONF_GRID_SENSOR,
     CONF_SOLAR_SENSOR,
-    CONF_CHARGER_SWITCH,
+    CONF_CHARGER_START_BUTTON,
+    CONF_CHARGER_STOP_BUTTON,
     CONF_CHARGER_CURRENT,
     CONF_CHARGER_POWER,
     CONF_CHARGER_STATUS,
@@ -68,7 +69,8 @@ class EVSCIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return vol.Schema({
             # --- SENZORJI ---
             vol.Required(CONF_GRID_SENSOR): selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor", device_class="power")),
-            vol.Required(CONF_CHARGER_SWITCH): selector.EntitySelector(selector.EntitySelectorConfig(domain="switch")),
+            vol.Required(CONF_CHARGER_START_BUTTON): selector.EntitySelector(selector.EntitySelectorConfig(domain="button")),
+            vol.Required(CONF_CHARGER_STOP_BUTTON): selector.EntitySelector(selector.EntitySelectorConfig(domain="button")),
             vol.Required(CONF_CHARGER_CURRENT): selector.EntitySelector(selector.EntitySelectorConfig(domain="number")),
             vol.Required(CONF_CHARGER_POWER): selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor", device_class="power")),
             vol.Required(CONF_CHARGER_STATUS): selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor")),

@@ -6,7 +6,8 @@
         "description": "Povežite senzorje. Polje za sončno elektrarno lahko pustite prazno.",
         "data": {
           "grid_sensor": "Senzor moči omrežja (W)",
-          "charger_switch": "Stikalo polnilnice",
+          "charger_start_button": "Gumb za začetek polnjenja",
+          "charger_stop_button": "Gumb za konec polnjenja",
           "charger_current": "Nastavitev toka (A)",
           "charger_power": "Senzor moči polnilnice (W)",
           "charger_status": "Status polnilnice (za zaznavo priklopa)",
@@ -41,7 +42,8 @@
         "description": "Tukaj lahko spremenite limite in senzorje.",
         "data": {
           "grid_sensor": "Senzor moči omrežja (W)",
-          "charger_switch": "Stikalo polnilnice",
+          "charger_start_button": "Gumb za začetek polnjenja",
+          "charger_stop_button": "Gumb za konec polnjenja",
           "charger_current": "Nastavitev toka (A)",
           "charger_power": "Senzor moči polnilnice (W)",
           "charger_status": "Status polnilnice (za zaznavo priklopa)",
