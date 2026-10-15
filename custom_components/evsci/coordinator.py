@@ -1,6 +1,5 @@
 """EVSCI Coordinator - Logika upravljanja."""
 import logging
-import math
 import datetime
 import time
 import asyncio
@@ -16,11 +15,6 @@ from homeassistant.components.number import SERVICE_SET_VALUE
 from .const import (
     DOMAIN, 
     MODE_OFF,
-    MODE_PV_ONLY,
-    MODE_MIN_PV,
-    MODE_DYNAMIC,
-    MODE_MAX_POWER,
-    MODE_SCHEDULE,
     MODE_NO_CHANGE,
     CONF_GRID_SENSOR,
     CONF_TARIFF_SENSOR,
@@ -49,16 +43,20 @@ from .const import (
     DEFAULT_MIN_CURRENT,
     DEFAULT_MAX_CURRENT,
 )
+from .logic import (
+    CHARGING_POWER_THRESHOLD_W,
+    STARTUP_GRACE_SECONDS,
+    Inputs,
+    Settings,
+    decide,
+    split_energy_power,
+    stable_min_charge_power,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
 # VARNOSTNE KONSTANTE
 STALE_DATA_THRESHOLD = 60.0
-# Korak dviga toka med polnjenjem (velja le, ko tok že teče).
-RAMP_UP_STEP = 2.0
-# Po zagonu (ali nadaljevanju iz pavze) senzor moči polnilnika zamuja za
-# dejanskim tokom, zato v tem času moč polnilnika ocenimo iz ukazanega toka.
-STARTUP_GRACE_SECONDS = 15.0
 
 class EVSCICoordinator(DataUpdateCoordinator):
     """Glavni razred za upravljanje EV polnjenja."""
@@ -140,6 +138,15 @@ class EVSCICoordinator(DataUpdateCoordinator):
         self.max_amps = o.get(CONF_MAX_CURRENT, d.get(CONF_MAX_CURRENT, DEFAULT_MAX_CURRENT))
 
         self.power_per_amp = self.voltage * self.phases
+        self.settings = Settings(
+            phases=self.phases,
+            voltage=self.voltage,
+            min_amps=self.min_amps,
+            max_amps=self.max_amps,
+            max_fuse_amps=self.max_fuse_amps,
+            buffer_watts=self.buffer_watts,
+            control_interval=self.control_interval,
+        )
 
         self.block_limits = {
             1: o.get(CONF_LIMIT_BLOCK_1, d.get(CONF_LIMIT_BLOCK_1, 6000)),
@@ -208,13 +215,13 @@ class EVSCICoordinator(DataUpdateCoordinator):
 
         switch_state = self.hass.states.get(self.charger_switch_entity) if self.charger_switch_entity else None
         is_charging_from_switch = (switch_state.state == "on") if switch_state else False
-        is_charging_from_power = charger_real_power > 50.0
+        is_charging_from_power = charger_real_power > CHARGING_POWER_THRESHOLD_W
         self.is_charging = self._session_active or is_charging_from_switch or is_charging_from_power
 
         # Spomin trenutne seje: ali je polnjenje že dejansko stabilno steklo.
         # Ne uporabimo samo nastavljenega toka, ker je po startu lahko kratek zamik
         # (tok je 6A, realna moč pa še ni narasla).
-        stable_min_charge_w = self.min_amps * self.power_per_amp * 0.5
+        stable_min_charge_w = stable_min_charge_power(self.settings)
         if self.is_charging and charger_real_power >= stable_min_charge_w:
             self._session_had_active_charge = True
         elif not self.is_charging:
@@ -230,15 +237,7 @@ class EVSCICoordinator(DataUpdateCoordinator):
                 soc_is_valid = True
 
         # --- 2. ENERGIJA ---
-        ev_grid_power_usage = 0.0
-        ev_solar_power_usage = 0.0
-        if charger_real_power > 0:
-            if grid_power > 0:
-                ev_grid_power_usage = min(charger_real_power, grid_power)
-            else:
-                ev_grid_power_usage = 0.0
-            ev_solar_power_usage = charger_real_power - ev_grid_power_usage
-            if ev_solar_power_usage < 0: ev_solar_power_usage = 0
+        ev_grid_power_usage, ev_solar_power_usage = split_energy_power(charger_real_power, grid_power)
 
         safe_time_diff = min(time_diff, 60.0) 
         self.energy_inc_grid = (ev_grid_power_usage * safe_time_diff) / 3600000.0
@@ -312,218 +311,45 @@ class EVSCICoordinator(DataUpdateCoordinator):
             return build_result(0, 0)
         self._current_unreadable_logged = False
 
-        # --- 4. PREVERJANJE LIMITOV (SoC & Stale Data) ---
-        force_pause = False
-        should_stop_session = False
-
-        if data_is_stale:
-            force_pause = True
-        
-        if soc_is_valid and self.user_target_soc < 100:
-            if current_soc >= self.user_target_soc:
-                force_pause = True
-                should_stop_session = True
-                if self.is_charging and self.selected_mode != MODE_OFF:
-                    _LOGGER.debug(f"EVSCI: Cilj dosežen ({current_soc}%).")
-
-        # --- 5. DOLOČANJE LIMITOV MOČI ---
-        # Grace period po zagonu: senzor moči polnilnika (npr. Modbus poll)
-        # še kaže ~0 W, omrežje pa že vključuje polnjenje. Brez popravka bi se
-        # hišna poraba napihnila (lažna preobremenitev) in PV višek izničil.
-        in_grace = now_time < self._grace_until
-        charger_power_eff = charger_real_power
-        if in_grace:
-            charger_power_eff = max(
-                charger_real_power,
-                self._last_commanded_amps * self.power_per_amp,
-            )
-
-        house_load = grid_power - charger_power_eff
-        fuse_limit_w = self.max_fuse_amps * self.power_per_amp
-        block_limit_w = self.block_limits.get(tariff, 6000)
-        
-        if self.selected_mode in [MODE_DYNAMIC, MODE_SCHEDULE]:
-            limit_base = block_limit_w
-        else:
-            limit_base = fuse_limit_w
-
-        limit_increase = limit_base - self.buffer_watts
-        limit_maintain = limit_base
-        limit_emergency = limit_base + self.buffer_watts
-
-        # --- 6. IZRAČUN CILJNEGA TOKA ---
-        target_mode_amps = 0
-        should_session_be_active = False
-        excess_w = 0.0
-
-        if should_stop_session: # SoC Limit
-            target_mode_amps = 0
-            should_session_be_active = False
-        else:
-            should_session_be_active = True
-            
-            if self.selected_mode in [MODE_MAX_POWER, MODE_DYNAMIC]:
-                target_mode_amps = self.max_amps
-
-            elif self.selected_mode == MODE_SCHEDULE:
-                if self._is_schedule_active():
-                    target_mode_amps = self.max_amps
-                else:
-                    target_mode_amps = 0
-
-            elif self.selected_mode in [MODE_PV_ONLY, MODE_MIN_PV]:
-                excess_w = charger_power_eff - grid_power
-                if self.selected_mode == MODE_PV_ONLY and self._pv_only_paused:
-                    # Med pavzo ne zaupamo nujno senzorju moči polnilnice,
-                    # ker lahko zamuja in navidezno doda ~4 kW "viska".
-                    excess_w = max(0.0, -grid_power)
-                solar_amps = min(math.floor(excess_w / self.power_per_amp), self.max_amps)
-                if self.selected_mode == MODE_PV_ONLY:
-                    target_mode_amps = solar_amps
-                else:
-                    target_mode_amps = max(self.min_amps, solar_amps)
-
-        # --- 7. FINALIZACIJA ---
-        adjusted_amps = current_hw_amps
-        
-        amps_limit_maintain = math.floor((limit_maintain - house_load) / self.power_per_amp)
-        amps_limit_increase = math.floor((limit_increase - house_load) / self.power_per_amp)
-        
-        amps_limit_maintain = min(amps_limit_maintain, self.max_fuse_amps)
-        amps_limit_increase = min(amps_limit_increase, self.max_fuse_amps)
-
-        # Kandidat
-        if data_is_stale:
-            candidate_amps = 0
-        else:
-            candidate_amps = min(target_mode_amps, amps_limit_maintain)
-
-        pv_only_keepalive_w = self.min_amps * self.power_per_amp
-        pv_only_min_start_w = pv_only_keepalive_w + self.buffer_watts
-        pv_only_up_amps = max(0, math.floor((excess_w - self.buffer_watts) / self.power_per_amp))
-
-        # Po pavzi v aktivni PV-only seji dovolimo ponovni zagon sele,
-        # ko je spet na voljo minimum za 6A plus buffer.
-        is_pv_only_waiting_for_resume_surplus = (
-            self.selected_mode == MODE_PV_ONLY
-            and self._pv_only_paused
-            and excess_w < pv_only_min_start_w
+        # --- 4. ODLOČITEV (čista funkcija, glej logic.py) ---
+        soc_limit_reached = bool(
+            soc_is_valid
+            and self.user_target_soc < 100
+            and current_soc >= self.user_target_soc
         )
-        if is_pv_only_waiting_for_resume_surplus:
-            candidate_amps = 0
+        if soc_limit_reached and self.is_charging:
+            _LOGGER.debug(f"EVSCI: Cilj dosežen ({current_soc}%).")
 
-        # PV only uporablja isto logiko vzdrževanja kot dynamic:
-        # buffer velja samo za dvig toka in za ponovni start iz pavze,
-        # ne pa za ohranjanje že doseženega toka.
-        if candidate_amps < current_hw_amps:
-            # Če smo OFF, ne čakamo intervala (varnost pri vklopu), ampak takoj vzamemo kandidata.
-            # Če smo ON, preverimo emergency.
-            
-            if not self.is_charging:
-                 # POPRAVEK: Pri izklopljeni polnilnici takoj uporabi kandidata, da preprečiš vklop s prevelikim tokom
-                 adjusted_amps = candidate_amps
-            
-            else:
-                is_emergency = False
-                current_total_amps = current_hw_amps + (house_load / self.power_per_amp)
-                
-                if current_total_amps > self.max_fuse_amps: is_emergency = True
-                if self.selected_mode != MODE_MAX_POWER and grid_power > limit_emergency: is_emergency = True
+        decision = decide(
+            self.settings,
+            Inputs(
+                mode=self.selected_mode,
+                grid_power=grid_power,
+                charger_power=charger_real_power,
+                current_amps=current_hw_amps,
+                is_charging=self.is_charging,
+                data_is_stale=data_is_stale,
+                soc_limit_reached=soc_limit_reached,
+                schedule_active=self._is_schedule_active(),
+                block_limit_w=self.block_limits.get(tariff, 6000),
+                now=now_time,
+                last_amp_change_time=self._last_amp_change_time,
+                grace_until=self._grace_until,
+                last_commanded_amps=self._last_commanded_amps,
+                pv_only_paused=self._pv_only_paused,
+                session_had_active_charge=self._session_had_active_charge,
+            ),
+        )
 
-                if is_emergency:
-                     _LOGGER.info("EVSCI: Kritična preobremenitev! Znižujem takoj.")
-                     if current_hw_amps > self.min_amps:
-                         adjusted_amps = self.min_amps
-                     else:
-                         adjusted_amps = 0
-                else:
-                    time_since_change = now_time - self._last_amp_change_time
-                    if time_since_change >= self.control_interval:
-                        adjusted_amps = candidate_amps
-                    else:
-                        adjusted_amps = current_hw_amps
+        if decision.emergency:
+            _LOGGER.info("EVSCI: Kritična preobremenitev! Znižujem takoj.")
 
-        # B. POVEČEVANJE?
-        elif candidate_amps > current_hw_amps:
-            # Preveri Green Zone
-            safe_target_up = min(target_mode_amps, amps_limit_increase)
-            if self.selected_mode == MODE_PV_ONLY:
-                # Histereza: za vsak dvig toka v PV only zahtevamo še buffer.
-                safe_target_up = min(safe_target_up, pv_only_up_amps)
-            
-            if safe_target_up > current_hw_amps:
-                time_since_change = now_time - self._last_amp_change_time
-                is_startup = (current_hw_amps < self.min_amps and safe_target_up >= self.min_amps)
-                is_pv_only_start_blocked = (
-                    self.selected_mode == MODE_PV_ONLY
-                    and current_hw_amps < self.min_amps
-                    and (
-                        not self.is_charging
-                        or self._session_had_active_charge
-                    )
-                    and excess_w < pv_only_min_start_w
-                )
-                
-                # POPRAVEK: Tudi pri startupu moramo spoštovati interval, RAZEN če je polnilnica OFF.
-                # Če je polnilnica OFF, dovolimo takojšen izračun, da lahko vklopi.
+        self._pv_only_paused = decision.pv_only_paused
+        self.calculated_amp = decision.target_amps
 
-                if is_pv_only_start_blocked:
-                    adjusted_amps = 0
+        await self._apply_changes(decision.target_amps, decision.session_active, current_hw_amps)
 
-                elif not self.is_charging:
-                    # Hladen zagon: takoj z največjim varnim tokom (brez ramp-upa).
-                    adjusted_amps = safe_target_up
-                
-                elif is_startup or time_since_change >= self.control_interval:
-                    if is_startup:
-                        # Nadaljevanje iz pavze: takoj z največjim varnim tokom.
-                        adjusted_amps = safe_target_up
-                    else:
-                        max_step = current_hw_amps + RAMP_UP_STEP
-                        adjusted_amps = min(safe_target_up, max_step)
-                else:
-                    adjusted_amps = current_hw_amps
-            else:
-                adjusted_amps = current_hw_amps
-        else:
-            adjusted_amps = current_hw_amps
-
-        # C. Minimum
-        if adjusted_amps < self.min_amps:
-            adjusted_amps = 0
-
-        if self.selected_mode != MODE_PV_ONLY or not should_session_be_active:
-            self._pv_only_paused = False
-        elif adjusted_amps == 0 and (
-            self._pv_only_paused
-            or current_hw_amps >= self.min_amps
-            or charger_real_power >= stable_min_charge_w
-        ):
-            self._pv_only_paused = True
-        elif self._pv_only_paused and excess_w >= pv_only_min_start_w and adjusted_amps >= self.min_amps:
-            self._pv_only_paused = False
-
-        self.calculated_amp = adjusted_amps
-        
-        # --- 8. ODLOČANJE O STANJU POLNILNE SEJE ---
-        final_session_active = False
-        
-        if self.is_charging:
-            # Če je ON, ostane ON, dokler način želi (tudi pri 0A)
-            if should_session_be_active:
-                final_session_active = True
-            else:
-                final_session_active = False
-        else:
-            # Če je OFF, se vklopi SAMO če imamo dovolj toka (Start Threshold)
-            if should_session_be_active and adjusted_amps >= self.min_amps:
-                final_session_active = True
-            else:
-                final_session_active = False  # Čakamo na pogoje
-
-        await self._apply_changes(adjusted_amps, final_session_active, current_hw_amps)
-
-        return build_result(self.calculated_amp, amps_limit_maintain)
+        return build_result(self.calculated_amp, decision.safety_amps_limit)
 
     async def _apply_changes(self, target_amps, should_be_active, current_hw_amps):
         """Pošiljanje ukazov."""

@@ -53,11 +53,11 @@ Glavni cilj faze je, da polnjenje začne z največjim možnim tokom glede na raz
 
 Odločitev o toku se izloči v čisto funkcijo (stanje noter, odločitev ven), ker je to osnova za varno izvedbo faz 3 in 4. Zdaj ima `_async_update_data` okoli 300 vrstic, PV-only pavza pa je state machine, ki ga je težko slediti.
 
-- [ ] Definiraj vhodno stanje (meritve, nastavitve, stanje seje, čas) in izhod (ciljni tok, start/stop seje).
-- [ ] Premakni izračun limitov, kandidata za tok, ramp-up, emergency in PV-only pavzo v čisto funkcijo brez dostopa do `hass`.
-- [ ] Koordinator naj samo bere stanje, kliče funkcijo in izvaja ukaze.
-- [ ] Napiši unit teste: hladen zagon, ramp-up v PV načinih, grace period, emergency znižanje, PV-only pavza in nadaljevanje, stari podatki, dosežen Target SoC.
-- [ ] Popravi pripisovanje energije solar/omrežje: `min(charger_power, grid_power)` pripiše polnilniku uvoz, ki ga je lahko povzročila hiša, zato upoštevaj hišno porabo posebej.
+- [x] Definiraj vhodno stanje (meritve, nastavitve, stanje seje, čas) in izhod (ciljni tok, start/stop seje).
+- [x] Premakni izračun limitov, kandidata za tok, ramp-up, emergency in PV-only pavzo v čisto funkcijo brez dostopa do `hass`.
+- [x] Koordinator naj samo bere stanje, kliče funkcijo in izvaja ukaze.
+- [x] Napiši unit teste: hladen zagon, ramp-up v PV načinih, grace period, emergency znižanje, PV-only pavza in nadaljevanje, stari podatki, dosežen Target SoC.
+- [x] Pripisovanje energije solar/omrežje pregledano: formula `min(charger_power, max(0, grid_power))` je pri modelu neto števca pravilna (brez polnilnika bi omrežje kazalo `grid - charger`, polnilnik najprej porabi izvoz, ostalo je iz omrežja), zato vedenja nisem spreminjal. Ugotovitev v točki 8 prvotnega pregleda je bila preohlapna. Zapisano je v `split_energy_power()` in pokrito s testi.
 
 ## Faza 3: zaščita varovalke po fazah
 

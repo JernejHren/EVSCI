@@ -168,6 +168,17 @@ cards:
 
 ---
 
+## 🧪 Development
+
+The charging decisions live in `custom_components/evsci/logic.py` as pure functions (no Home Assistant needed), so they can be unit tested:
+
+```bash
+pip install -r requirements_test.txt
+python -m pytest tests
+```
+
+---
+
 ## 📄 License
 
 Apache License 2.0, see [LICENSE](LICENSE).
