@@ -43,7 +43,7 @@ Glavni cilj faze je, da polnjenje začne z največjim možnim tokom glede na raz
 
 **Higiena repozitorija**
 
-- [ ] Izpolni prazen `LICENSE`.
+- [x] Izpolni prazen `LICENSE` (Apache License 2.0).
 - [x] Popravi README (še omenja "Charger Switch") in dodaj omembo odstranjenega solar senzorja.
 - [x] Dopolni CHANGELOG z 0.2.1 in novo verzijo.
 - [x] Naredi tarifni senzor neobvezen za uporabnike z eno tarifo.
@@ -103,3 +103,4 @@ Vseh šest vprašanj je rešenih.
 - Migracija solar senzorja: ni je, ključ `solar_sensor` v obstoječih vnosih se samo ignorira in `VERSION` ostane 1.
 - PV načini: zagon z največjim možnim tokom, med polnjenjem spreminjanje po 2 A, da tok ne skače gor in dol.
 - Dynamic, Max Power in Schedule: ramp-up ob začetku polnjenja je popolnoma izključen.
+- Dvig toka med polnjenjem (vsi načini): ostane po največ 2 A na interval, brez večjih skokov.
