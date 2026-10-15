@@ -4,6 +4,9 @@ All notable changes to EVSCI since 0.1.3.
 
 ## [Unreleased]
 
+### Added
+- Brand images (`icon`, `logo` and a dark logo, each with an @2x version) in `custom_components/evsci/brand/`, so the integration shows its icon in Home Assistant 2026.3 and newer.
+
 ### Changed
 - Charging now starts right away at the highest current the available power allows. The slow ramp-up at start (6 A, then +2 A every control interval) is gone in all modes. In the PV modes the current is still adjusted in 2 A steps during charging to avoid jumping up and down.
 - A 15 s grace period after start (or resume from pause) estimates the charger power from the commanded current while the charger's power sensor catches up. This prevents false overload detection and a false loss of PV surplus right after start.
