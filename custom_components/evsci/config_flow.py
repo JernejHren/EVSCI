@@ -7,7 +7,6 @@ from homeassistant.helpers import selector
 from .const import (
     DOMAIN,
     CONF_GRID_SENSOR,
-    CONF_SOLAR_SENSOR,
     CONF_CHARGER_START_BUTTON,
     CONF_CHARGER_STOP_BUTTON,
     CONF_CHARGER_CURRENT,
@@ -18,7 +17,13 @@ from .const import (
     CONF_PHASES,
     CONF_MAX_FUSE,
     CONF_BUFFER,
-    CONF_CONTROL_INTERVAL, # NOVO
+    CONF_CONTROL_INTERVAL,
+    CONF_VOLTAGE,
+    CONF_MIN_CURRENT,
+    CONF_MAX_CURRENT,
+    DEFAULT_VOLTAGE,
+    DEFAULT_MIN_CURRENT,
+    DEFAULT_MAX_CURRENT,
     CONF_AUTO_MODE,
     CONF_RESET_ON_UNPLUG,
     CONF_LIMIT_BLOCK_1,
@@ -49,6 +54,9 @@ class EVSCIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             CONF_MAX_FUSE: 25,
             CONF_BUFFER: 500,
             CONF_CONTROL_INTERVAL: 30, # Privzeto 30s
+            CONF_VOLTAGE: DEFAULT_VOLTAGE,
+            CONF_MIN_CURRENT: DEFAULT_MIN_CURRENT,
+            CONF_MAX_CURRENT: DEFAULT_MAX_CURRENT,
             CONF_LIMIT_BLOCK_1: 6000,
             CONF_LIMIT_BLOCK_2: 6000,
             CONF_LIMIT_BLOCK_3: 6000,
@@ -74,15 +82,17 @@ class EVSCIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             vol.Required(CONF_CHARGER_CURRENT): selector.EntitySelector(selector.EntitySelectorConfig(domain="number")),
             vol.Required(CONF_CHARGER_POWER): selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor", device_class="power")),
             vol.Required(CONF_CHARGER_STATUS): selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor")),
-            vol.Required(CONF_TARIFF_SENSOR): selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor")),
-            
-            vol.Optional(CONF_SOLAR_SENSOR): selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor", device_class="power")),
+
+            vol.Optional(CONF_TARIFF_SENSOR): selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor")),
             vol.Optional(CONF_EV_SOC_SENSOR): selector.EntitySelector(selector.EntitySelectorConfig()),
             
             # --- PARAMETRI ---
             vol.Required(CONF_PHASES): vol.In([1, 3]),
             vol.Required(CONF_MAX_FUSE): int,
             vol.Required(CONF_BUFFER): int,
+            vol.Optional(CONF_VOLTAGE, default=DEFAULT_VOLTAGE): vol.All(int, vol.Range(min=100, max=480)),
+            vol.Optional(CONF_MIN_CURRENT, default=DEFAULT_MIN_CURRENT): vol.All(int, vol.Range(min=1, max=32)),
+            vol.Optional(CONF_MAX_CURRENT, default=DEFAULT_MAX_CURRENT): vol.All(int, vol.Range(min=6, max=80)),
             
             # NOVO: Interval
             vol.Required(CONF_CONTROL_INTERVAL): vol.All(int, vol.Range(min=5, max=300)),
@@ -109,7 +119,7 @@ class EVSCIOptionsFlowHandler(config_entries.OptionsFlow):
 
     async def async_step_init(self, user_input=None):
         if user_input is not None:
-            optional_fields = [CONF_SOLAR_SENSOR, CONF_EV_SOC_SENSOR]
+            optional_fields = [CONF_TARIFF_SENSOR, CONF_EV_SOC_SENSOR]
             for key in optional_fields:
                 if key not in user_input or user_input[key] in [None, "", []]:
                     user_input[key] = None

@@ -4,7 +4,6 @@ DOMAIN = "evsci"
 
 # Konfiguracijski ključi - Senzorji
 CONF_GRID_SENSOR = "grid_sensor"
-CONF_SOLAR_SENSOR = "solar_sensor"
 # Legacy (switch-based control)
 CONF_CHARGER_SWITCH = "charger_switch"
 CONF_CHARGER_START_BUTTON = "charger_start_button"
@@ -21,7 +20,15 @@ CONF_MAX_FUSE = "max_fuse"
 CONF_BUFFER = "buffer"
 CONF_AUTO_MODE = "auto_mode"
 CONF_RESET_ON_UNPLUG = "reset_on_unplug"
-CONF_CONTROL_INTERVAL = "control_interval"  # <--- NOVO
+CONF_CONTROL_INTERVAL = "control_interval"
+CONF_VOLTAGE = "voltage"
+CONF_MIN_CURRENT = "min_current"
+CONF_MAX_CURRENT = "max_current"
+
+# Privzete vrednosti
+DEFAULT_VOLTAGE = 230
+DEFAULT_MIN_CURRENT = 6
+DEFAULT_MAX_CURRENT = 32
 
 # Limiti za bloke (W)
 CONF_LIMIT_BLOCK_1 = "limit_block_1"

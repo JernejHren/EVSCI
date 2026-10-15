@@ -28,9 +28,6 @@ async def async_setup_entry(hass, entry, async_add_entities):
         EVSCILifetimeEnergy(coordinator, "lifetime_solar", "Lifetime Energy Solar"),
         EVSCILifetimeEnergy(coordinator, "lifetime_grid", "Lifetime Energy Grid"),
     ]
-    
-    if coordinator.data and coordinator.data.get("solar_power") is not None:
-         sensors.append(EVSCISolarMonitor(coordinator))
 
     async_add_entities(sensors, True)
 
@@ -41,6 +38,19 @@ class EVSCIBaseSensor(CoordinatorEntity, SensorEntity):
         super().__init__(coordinator)
         self._attr_has_entity_name = True
         self._entry_id = coordinator.entry.entry_id
+        self._last_update_id = None
+
+    def _is_new_update(self, data) -> bool:
+        """Ali gre za nov izračun koordinatorja.
+
+        Koordinator ob spremembi načina ali ob priklopu ponovno objavi stare
+        podatke. Prirastke energije smemo prišteti samo enkrat na izračun.
+        """
+        update_id = data.get("update_id")
+        if update_id is not None and update_id == self._last_update_id:
+            return False
+        self._last_update_id = update_id
+        return True
 
 class EVSCITargetCurrent(EVSCIBaseSensor):
     _attr_name = "Target Current"
@@ -64,18 +74,6 @@ class EVSCIGridMonitor(EVSCIBaseSensor):
     @property
     def native_value(self):
         return self.coordinator.data.get("grid_power", 0)
-
-class EVSCISolarMonitor(EVSCIBaseSensor):
-    _attr_name = "Monitored Solar Power"
-    _attr_native_unit_of_measurement = UnitOfPower.WATT
-    _attr_device_class = SensorDeviceClass.POWER
-    _attr_state_class = SensorStateClass.MEASUREMENT
-    def __init__(self, coordinator):
-        super().__init__(coordinator)
-        self._attr_unique_id = f"{self._entry_id}_mon_solar"
-    @property
-    def native_value(self):
-        return self.coordinator.data.get("solar_power", 0)
 
 class EVSCITariffMonitor(EVSCIBaseSensor):
     _attr_name = "Monitored Tariff Block"
@@ -115,7 +113,11 @@ class EVSCISessionEnergy(EVSCIBaseSensor):
     def _handle_coordinator_update(self) -> None:
         """Kliče se vsakih 5 sekund, ko coordinator objavi nove podatke."""
         data = self.coordinator.data
-        
+
+        if not self._is_new_update(data):
+            self.async_write_ha_state()
+            return
+
         # Preveri za reset signal
         if data.get("reset_session"):
             self._state = 0.0
@@ -171,7 +173,11 @@ class EVSCILifetimeEnergy(EVSCIBaseSensor, RestoreSensor):
     def _handle_coordinator_update(self) -> None:
         """Prištej prirastek."""
         data = self.coordinator.data
-        
+
+        if not self._is_new_update(data):
+            self.async_write_ha_state()
+            return
+
         inc_grid = data.get("energy_inc_grid", 0.0)
         inc_solar = data.get("energy_inc_solar", 0.0)
         
