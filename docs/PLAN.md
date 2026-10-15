@@ -22,32 +22,32 @@ Glavni cilj faze je, da polnjenje začne z največjim možnim tokom glede na raz
 
 **Ramp-up ob zagonu**
 
-- [ ] Ob hladnem zagonu in nadaljevanju iz pavze uporabi `safe_target_up`, ki je že omejen z varovalko, blokom in bufferom.
-- [ ] Ob zagonu začni z največjim možnim tokom v vseh načinih. V Dynamic, Max Power in Schedule ramp-up ob začetku popolnoma izključi. V PV načinih ohrani spreminjanje med polnjenjem po 2 A na 30 s, da tok ne skače gor in dol.
-- [ ] Dodaj grace period (10–15 s) brez emergency zniževanja po zagonu. Senzor polnilnika (Modbus poll) še kaže 0 W, omrežje pa že več kW več, zato bi `house_load` napihnilo in sprožilo lažno "kritično preobremenitev".
-- [ ] Med grace periodom oceni hišno porabo z zadnjim ukazanim tokom, dokler senzor ne dohiti. Enako velja za `excess_w` v PV-only.
+- [x] Ob hladnem zagonu in nadaljevanju iz pavze uporabi `safe_target_up`, ki je že omejen z varovalko, blokom in bufferom.
+- [x] Ob zagonu začni z največjim možnim tokom v vseh načinih. V Dynamic, Max Power in Schedule ramp-up ob začetku popolnoma izključi. V PV načinih ohrani spreminjanje med polnjenjem po 2 A na 30 s, da tok ne skače gor in dol.
+- [x] Dodaj grace period (10–15 s) brez emergency zniževanja po zagonu. Senzor polnilnika (Modbus poll) še kaže 0 W, omrežje pa že več kW več, zato bi `house_load` napihnilo in sprožilo lažno "kritično preobremenitev".
+- [x] Med grace periodom oceni hišno porabo z zadnjim ukazanim tokom, dokler senzor ne dohiti. Enako velja za `excess_w` v PV-only.
 
 **Popravki napak**
 
-- [ ] Zaznava starih podatkov: uporabi `last_reported` namesto `last_updated`, sicer konstantna moč omrežja po 60 s sproži pavzo.
-- [ ] Dvojno štetje energije: `set_mode()` in zaznava priklopa kličeta `async_set_updated_data(self.data)`, senzorji pa ponovno prištejejo stare prirastke `energy_inc_*`. Prirastke naj porabi samo redni update.
-- [ ] SoC in tok: namesto `isdigit()` uporabi `float()` v try/except, ob napaki (npr. `unavailable`) pa varno stanje (pavza) namesto tihega privzetka 6 A.
-- [ ] Goli `except:` zamenjaj z `except (ValueError, TypeError)`.
+- [x] Zaznava starih podatkov: uporabi `last_reported` namesto `last_updated`, sicer konstantna moč omrežja po 60 s sproži pavzo.
+- [x] Dvojno štetje energije: `set_mode()` in zaznava priklopa kličeta `async_set_updated_data(self.data)`, senzorji pa ponovno prištejejo stare prirastke `energy_inc_*`. Prirastke naj porabi samo redni update.
+- [x] SoC in tok: namesto `isdigit()` uporabi `float()` v try/except, ob napaki (npr. `unavailable`) pa varno stanje (pavza) namesto tihega privzetka 6 A.
+- [x] Goli `except:` zamenjaj z `except (ValueError, TypeError)`.
 
 **Odstranitev solar senzorja**
 
-- [ ] Odstrani `CONF_SOLAR_SENSOR` iz `const.py`, `config_flow.py` (shema in `optional_fields`) in `_load_config`.
-- [ ] Odstrani `self.solar_entity`, `solar_power` v `_async_update_data` ter `EVSCISolarMonitor` v `sensor.py`.
-- [ ] Odstrani ključ `solar_sensor` iz `en.json` in `sl.json` (config in options).
-- [ ] Migracije ni: ključ `solar_sensor` v obstoječih vnosih se samo ignorira, `VERSION` ostane 1.
+- [x] Odstrani `CONF_SOLAR_SENSOR` iz `const.py`, `config_flow.py` (shema in `optional_fields`) in `_load_config`.
+- [x] Odstrani `self.solar_entity`, `solar_power` v `_async_update_data` ter `EVSCISolarMonitor` v `sensor.py`.
+- [x] Odstrani ključ `solar_sensor` iz `en.json` in `sl.json` (config in options).
+- [x] Migracije ni: ključ `solar_sensor` v obstoječih vnosih se samo ignorira, `VERSION` ostane 1.
 
 **Higiena repozitorija**
 
 - [ ] Izpolni prazen `LICENSE`.
-- [ ] Popravi README (še omenja "Charger Switch") in dodaj omembo odstranjenega solar senzorja.
-- [ ] Dopolni CHANGELOG z 0.2.1 in novo verzijo.
-- [ ] Naredi tarifni senzor neobvezen za uporabnike z eno tarifo.
-- [ ] Trdo zapisane 230 V, 6 A in 32 A prestavi v nastavitve polnilnika.
+- [x] Popravi README (še omenja "Charger Switch") in dodaj omembo odstranjenega solar senzorja.
+- [x] Dopolni CHANGELOG z 0.2.1 in novo verzijo.
+- [x] Naredi tarifni senzor neobvezen za uporabnike z eno tarifo.
+- [x] Trdo zapisane 230 V, 6 A in 32 A prestavi v nastavitve polnilnika.
 
 ## Faza 2: testabilna odločitvena logika
 

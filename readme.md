@@ -13,32 +13,22 @@ It dynamically adjusts the charging current based on your home's total grid cons
 *   **🤖 Smart Automation:**
     *   **Auto-Start:** Automatically detects when the car is plugged in and switches to your preferred default mode.
     *   **Session Persistence:** Instead of stopping the session when power is low, it pauses charging (0A), allowing it to resume automatically without re-authorization.
-    *   **Soft Ramp-up:** Increases current gradually to be gentle on the grid and battery, but decreases immediately in case of overload.
+    *   **Full-power start:** Charging starts right away at the highest current the available power allows (no slow ramp-up at start). A short grace period after start prevents false overload detection while the charger's power sensor catches up.
+    *   **Smooth PV tracking:** In the PV modes, the current is adjusted in 2 A steps during charging so it doesn't jump up and down, but it still decreases immediately in case of overload.
 *   **🔋 Target SoC Limit:** Stops charging when the vehicle battery reaches a specific percentage (requires a vehicle integration in Home Assistant).
 
 ---
 
-## ⚠️ Prerequisite: Tariff Sensor
+## 🏷️ Tariff Sensor (optional)
 
-This integration **requires** a sensor that reports the current **Tariff Block (as an integer 1-5)**. This is used to determine the power limit for the current time of day.
+A **Tariff Block sensor** (integer 1-5) lets EVSCI apply a different power limit for each time-of-day block. It is **optional**.
 
 ### 🇸🇮 For Users in Slovenia
 It is highly recommended to use the **[Network Tariff (NMPT)](https://github.com/frlequ/home-assistant-network-tariff)** integration. It automatically provides the correct block (1-5) for the Slovenian grid.
 *   Select the entity provided by this integration (e.g., `sensor.network_tariff_current_block`) during setup.
 
 ### 🌍 For International Users / Single Tariff
-If you live in a country with a single power limit (no complex time blocks), you **must create a template sensor** that always returns `1`.
-
-Add this to your `configuration.yaml` and restart Home Assistant:
-
-```yaml
-template:
-  - sensor:
-      - name: "EVSCI Dummy Tariff"
-        state: "1"
-```
-    
-*   Select `sensor.evsci_dummy_tariff` during installation.
+Leave the **Tariff Block Sensor** field empty. EVSCI then always uses block 1.
 *   In the configuration settings, set **Limit Block 1** to your home's main power limit (e.g., 11000 W).
 *   You can ignore limits for Blocks 2-5.
 
@@ -47,7 +37,8 @@ template:
 *   **OFF:** Charging is disabled.
 *   **Dynamic:** The smartest mode. Charges as fast as possible but **strictly respects the current Tariff Block limit** to avoid penalty fees.
 *   **PV Only:** Charges **only** using excess solar energy.
-    *   Starts when excess power > 6A.
+    *   Starts when excess power covers the minimum current (6 A by default) plus the safety buffer, and then starts directly at the highest current the excess allows.
+    *   Adjusts the current in 2 A steps during charging.
     *   Pauses (0A) if clouds appear or house consumption rises.
 *   **Min + PV:** Always charges at minimum power (6A) from the grid to ensure progress, but adds excess solar power on top when available.
 *   **Max Power:** Charges at the maximum speed allowed by your **Main Fuse**.
@@ -84,16 +75,19 @@ To work correctly, EVSCI needs to "see" your house:
     *   *Positive value (+):* Importing from grid (Consumption).
     *   *Negative value (-):* Exporting to grid (Solar surplus).
 *   **Charger Power Sensor (W):** Measures how much power the EV is currently drawing.
-*   **Charger Switch:** The entity to turn the charger ON/OFF.
+*   **Charger Start / Stop Buttons:** The `button` entities that start and stop a charging session.
 *   **Charger Current:** The entity to set the charging Amps (A).
 *   **Charger Status:** A sensor indicating status (e.g., "Charging", "Idle", "Connected", "B") used for Auto-Start detection.
-*   **Tariff Sensor:** (See section above).
+*   **Tariff Sensor (optional):** See the section above.
 
 ### Parameters
 *   **Phases:** 1 or 3 (depends on your installation).
 *   **Main Fuse (A):** The physical limit of your main house fuse (e.g., 20A or 25A).
 *   **Safety Buffer (W):** Power reserve to prevent tripping (recommended: 200-500W).
-*   **Control Interval:** How often to increase current (default 30s). *Note: Decreasing current happens immediately for safety.*
+*   **Supply Voltage (V):** Phase voltage used to convert amps to watts (default 230 V).
+*   **Charger Minimum / Maximum Current (A):** The current range your charger supports (defaults 6 A and 32 A).
+*   **Control Interval:** How often the current may be changed during charging (default 30s). *Note: Decreasing current on overload happens immediately for safety.*
+*   **Solar surplus** is derived from the Grid Power Sensor (export = surplus), so no separate solar sensor is needed.
 
 ---
 
@@ -139,7 +133,7 @@ cards:
           red: 25
   - type: entities
     entities:
-      - entity: number.target_battery_limit
+      - entity: number.target_soc
         name: Target Battery (%)
         icon: mdi:battery-charging-high
   - type: conditional
