@@ -646,11 +646,11 @@ def test_block_overload_still_triggers_emergency_with_phase_protection():
 
 
 def _block_mode_phase_limited(last_change):
-    """Dynamic: blok ima dovolj prostora, a avto vleče manj od ukazanega toka (15 A od 20 A),
-    zato je hiša na vsaki fazi že pri 22 A in faza dovoli samo še 18 A."""
+    """Dynamic: blok ima dovolj prostora (22 A), skupna poraba je pod varovalko, a je hiša
+    neuravnotežena: L1 ima 12 A hišne porabe, zato faza dovoli samo še 13 A (ukazanih je 14 A)."""
     return phased(
-        (22, 22, 22), mode=MODE_DYNAMIC, block_limit_w=20000,
-        is_charging=True, current_amps=20.0, charger_power=15.0 * PPA,
+        (22, 13, 13), mode=MODE_DYNAMIC, block_limit_w=20000,
+        is_charging=True, current_amps=14.0, charger_power=10.0 * PPA,
         last_amp_change_time=last_change,
     )
 
@@ -658,13 +658,46 @@ def _block_mode_phase_limited(last_change):
 def test_phase_limit_lowers_current_in_block_mode_after_interval():
     d = decide(P3, _block_mode_phase_limited(ELAPSED))
     assert d.emergency is False
-    assert d.safety_amps_limit == 18      # 25 - (22 - 15)
-    assert d.target_amps == 18
+    assert d.safety_amps_limit == 13      # 25 - (22 - 10)
+    assert d.target_amps == 13
 
 
 def test_phase_limit_decrease_in_block_mode_waits_for_interval():
     d = decide(P3, _block_mode_phase_limited(TOO_SOON))
-    assert d.target_amps == 20
+    assert d.emergency is False
+    assert d.target_amps == 14
+
+
+# ------------------------------------------- skupna moč in faze veljajo hkrati
+
+def test_total_limit_still_applies_when_phase_currents_look_fine():
+    # senzorji faz kažejo malo, a skupna moč je pri meji varovalke (3 x 25 A x 230 V = 17250 W):
+    # skupni limit mora še vedno zadržati polnjenje
+    d = decide(P3, phased((5, 5, 5), mode=MODE_MAX_POWER, grid_power=17000.0))
+    assert d.target_amps == 0
+
+
+def test_total_overload_triggers_emergency_even_if_each_phase_is_ok():
+    inp = phased(
+        (5, 5, 5), mode=MODE_MAX_POWER, grid_power=23000.0, is_charging=True,
+        current_amps=10.0, charger_power=10 * PPA, last_amp_change_time=TOO_SOON,
+    )
+    d = decide(P3, inp)
+    assert d.emergency is True
+    assert d.target_amps == 6
+
+
+def test_phase_limit_applies_even_if_total_is_below_the_limit():
+    # skupaj le 37 A od 75 A, a L2 ima 20 A hišne porabe
+    d = decide(P3, phased((8, 20, 9), mode=MODE_MAX_POWER))
+    assert d.target_amps == 0
+    assert d.safety_amps_limit == 5
+
+
+def test_one_loaded_phase_lowers_current_on_all_phases_of_three_phase_charger():
+    # 3f polnilnik: najbolj obremenjena faza (L2, 17 A) določi tok za vse tri
+    d = decide(P3, phased((8, 17, 9), mode=MODE_MAX_POWER))
+    assert d.target_amps == 7
 
 
 # ---------------------------------------------------------------- predznak toka
@@ -701,4 +734,5 @@ def test_grace_period_estimates_charger_current_per_phase():
 def test_without_grace_period_late_sensor_would_stop_charging_on_phases():
     """Kontrola: brez grace perioda bi se hišna obremenitev faz napihnila in tok padel."""
     d = decide(P3, _late_phase_sensor(grace_until=0))
-    assert d.target_amps == 0
+    assert d.emergency is True
+    assert d.target_amps <= 6

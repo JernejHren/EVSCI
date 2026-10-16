@@ -100,8 +100,8 @@
   "selector": {
     "fuse_protection": {
       "options": {
-        "total": "Total house power",
-        "per_phase": "Per phase (3-phase, needs phase current sensors)"
+        "total": "Total house power only",
+        "per_phase": "Total house power and each phase (3-phase, needs phase current sensors)"
       }
     },
     "charger_phase": {

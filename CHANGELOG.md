@@ -5,7 +5,7 @@ All notable changes to EVSCI since 0.1.3.
 ## [Unreleased]
 
 ### Added
-- Per-phase main fuse protection for 3-phase installations. New setting "Main Fuse Protection" (*Total house power* or *Per phase*). In *Per phase* mode you pick the current sensors (A) of L1, L2 and L3, and EVSCI limits the charger by the weakest phase. For a single-phase charger you also choose which phase it is on. The tariff block limit and PV surplus still use total net power. If a phase sensor is unavailable or stale, charging pauses (a warning is logged once).
+- Per-phase main fuse protection for 3-phase installations. New setting "Main Fuse Protection" (*Total house power only* or *Total house power and each phase*). In the second mode you pick the current sensors (A) of L1, L2 and L3, and EVSCI applies the total limit and the per-phase limit at the same time: the stricter one wins, so an overloaded phase lowers the charging current on all phases. For a single-phase charger you also choose which phase it is on. If a phase sensor is unavailable or stale, charging pauses (a warning is logged once).
 - Brand images (`icon`, `logo` and a dark logo, each with an @2x version) in `custom_components/evsci/brand/`, so the integration shows its icon in Home Assistant 2026.3 and newer.
 - Unit tests (`tests/`, run with `python -m pytest tests`) for the charging decisions: cold start, ramp-up steps, startup grace period, overload protection, stale data, Target SoC, PV-only pause and resume, and the solar/grid energy split.
 

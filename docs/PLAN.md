@@ -74,6 +74,8 @@ Pri 3f hiši uporabnik izbere, ali integracija ščiti varovalko po skupni porab
 - [x] Grace period iz faze 1 velja tudi tu.
 - [x] Unit testi z neuravnoteženimi scenariji (po izločitvi logike v fazi 2).
 
+Popravek po povratni informaciji: skupna moč in zaščita po fazah veljata hkrati (najstrožja zmaga), ne ena namesto druge. Pri 1f polnilniku na 3f hiši skupni limit računa z 3 fazami (`house_phases`).
+
 Opomba: config flow in prevodi so preverjeni samo s stubi, ne z resničnim Home Assistantom. Na strojni opremi ni testirano.
 
 ## Faza 4: več polnilnikov

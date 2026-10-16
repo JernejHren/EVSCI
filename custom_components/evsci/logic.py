@@ -51,6 +51,11 @@ class Settings:
         return self.voltage * self.phases
 
     @property
+    def house_phases(self) -> int:
+        """Število faz hiše: pri zaščiti po fazah je hiša vedno 3f (polnilnik je lahko 1f)."""
+        return 3 if self.per_phase else self.phases
+
+    @property
     def loaded_phases(self) -> tuple[int, ...]:
         """Indeksi faz (0-2), ki jih polnilnik obremenjuje."""
         return tuple((self.charger_phase + k) % 3 for k in range(min(self.phases, 3)))
@@ -192,7 +197,8 @@ def decide(settings: Settings, inp: Inputs) -> Decision:
     charger_power_eff = effective_charger_power(settings, inp)
     house_load = inp.grid_power - charger_power_eff
 
-    fuse_limit_w = settings.max_fuse_amps * ppa
+    house_ppa = settings.voltage * settings.house_phases
+    fuse_limit_w = settings.max_fuse_amps * house_ppa
     if inp.mode in (MODE_DYNAMIC, MODE_SCHEDULE):
         limit_base = inp.block_limit_w
     else:
@@ -220,15 +226,12 @@ def decide(settings: Settings, inp: Inputs) -> Decision:
     block_mode = inp.mode in (MODE_DYNAMIC, MODE_SCHEDULE)
     per_phase_ok = settings.per_phase and inp.phase_currents is not None
     if per_phase_ok:
-        # Varovalko ščitimo po najšibkejši fazi. Skupna moč varovalke s tem ni
-        # več merilo, limit tarifnega bloka pa ostane (velja skupna moč).
+        # Skupna omejitev (varovalka oz. blok tarife) velja vedno; zaščita po
+        # fazah jo samo dodatno znižuje. Najstrožja omejitev zmaga, tako da
+        # preobremenjena ena faza zniža tok polnjenja na vseh fazah.
         phase_maintain, phase_increase = phase_headroom_amps(settings, inp, charger_power_eff)
-        if block_mode:
-            amps_limit_maintain = min(amps_limit_maintain, phase_maintain)
-            amps_limit_increase = min(amps_limit_increase, phase_increase)
-        else:
-            amps_limit_maintain = min(phase_maintain, settings.max_fuse_amps)
-            amps_limit_increase = min(phase_increase, settings.max_fuse_amps)
+        amps_limit_maintain = min(amps_limit_maintain, phase_maintain)
+        amps_limit_increase = min(amps_limit_increase, phase_increase)
     elif settings.per_phase:
         # Tokov po fazah ni ali so stari: ne vemo, kolikšen je prostor.
         amps_limit_maintain = 0
@@ -265,17 +268,13 @@ def decide(settings: Settings, inp: Inputs) -> Decision:
             # s prevelikim tokom.
             adjusted_amps = candidate_amps
         else:
-            if per_phase_ok:
-                if phase_overload(settings, inp):
-                    emergency = True
-                if block_mode and inp.grid_power > limit_emergency:
-                    emergency = True
-            else:
-                current_total_amps = current + (house_load / ppa)
-                if current_total_amps > settings.max_fuse_amps:
-                    emergency = True
-                if inp.mode != MODE_MAX_POWER and inp.grid_power > limit_emergency:
-                    emergency = True
+            current_total_amps = (current * ppa + house_load) / house_ppa
+            if current_total_amps > settings.max_fuse_amps:
+                emergency = True
+            if inp.mode != MODE_MAX_POWER and inp.grid_power > limit_emergency:
+                emergency = True
+            if per_phase_ok and phase_overload(settings, inp):
+                emergency = True
 
             if emergency:
                 adjusted_amps = min_amps if current > min_amps else 0

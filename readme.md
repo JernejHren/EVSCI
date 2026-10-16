@@ -8,7 +8,7 @@ It dynamically adjusts the charging current based on your home's total grid cons
 ## ✨ Key Features
 
 *   **🛡️ Main Fuse Protection:** Actively monitors total house consumption. If you turn on high-load appliances (oven, heat pump), EVSCI immediately lowers the EV charging current to prevent the main fuse from tripping.
-*   **🔌 Per-phase protection (3-phase):** Optionally protect the fuse of each phase instead of the total consumption. EVSCI then limits the charging current by the most loaded phase.
+*   **🔌 Per-phase protection (3-phase):** Optionally protect each phase in addition to the total consumption. The total limit always applies, and if one phase gets overloaded (e.g. by extra appliances on it), the charging current is lowered on all phases.
 *   **📉 Network Tariff Blocks:** Specifically designed to respect the power limits of the current tariff block (e.g., the NMPT system in Slovenia). It ensures you stay within the agreed power profile to avoid penalty fees.
 *   **☀️ Solar Charging (PV):** Intelligent modes to charge using only excess solar energy or a mix of grid and solar.
 *   **🤖 Smart Automation:**
@@ -84,11 +84,11 @@ To work correctly, EVSCI needs to "see" your house:
 ### Parameters
 *   **Phases:** 1 or 3 (depends on your installation).
 *   **Main Fuse (A):** The physical limit of your main house fuse (e.g., 20A or 25A).
-*   **Main Fuse Protection:** *Total house power* (default) or *Per phase* (3-phase only).
-    *   *Per phase* asks for the current sensors (A) of L1, L2 and L3 at your grid connection point. Sensors that report a sign (import +, export -) work best; a sensor reporting only the magnitude is treated as import (the safe side).
+*   **Main Fuse Protection:** *Total house power only* (default) or *Total house power and each phase* (3-phase only). In the second mode both limits apply at the same time and the stricter one wins.
+    *   The second mode asks for the current sensors (A) of L1, L2 and L3 at your grid connection point. Sensors that report a sign (import +, export -) work best; a sensor reporting only the magnitude is treated as import (the safe side).
     *   With a single-phase charger on a 3-phase house you also select the phase it is connected to. A 3-phase charger loads all three phases equally.
     *   If a phase sensor becomes unavailable or stale, charging pauses until it returns.
-    *   Tariff block limits and PV surplus still use the total power from the Grid Power Sensor.
+    *   The total limit (main fuse, or the tariff block in Dynamic/Schedule) and PV surplus always use the total power from the Grid Power Sensor.
 *   **Safety Buffer (W):** Power reserve to prevent tripping (recommended: 200-500W).
 *   **Supply Voltage (V):** Phase voltage used to convert amps to watts (default 230 V).
 *   **Charger Minimum / Maximum Current (A):** The current range your charger supports (defaults 6 A and 32 A).
