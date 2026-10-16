@@ -84,9 +84,11 @@ Koordinator že zdaj govori samo s HA entitetami, zato je podpora za druge polni
 
 **4a: drugi polnilniki, en po en (0,5–1 dan)**
 
-- [ ] Nastavljivo preslikovanje statusov "mirovanje" (zdaj trdo zapisani ABB seznami).
-- [ ] Nastavljiv min/max tok polnilnika.
-- [ ] Izbira med stikalom in gumbi za start/stop.
+- [x] Nastavljivo preslikovanje statusov "mirovanje" (zdaj trdo zapisani ABB seznami).
+- [x] Nastavljiv min/max tok polnilnika.
+- [x] Izbira med stikalom in gumbi za start/stop.
+
+Opomba: config flow in prevodi so spet preverjeni samo s stubi. Podprtost drugih polnilnikov ni testirana, ker imam na voljo samo ABB Terra AC.
 
 **4b: več polnilnikov hkrati (3–5 dni), odloženo**
 

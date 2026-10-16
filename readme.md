@@ -76,9 +76,10 @@ To work correctly, EVSCI needs to "see" your house:
     *   *Positive value (+):* Importing from grid (Consumption).
     *   *Negative value (-):* Exporting to grid (Solar surplus).
 *   **Charger Power Sensor (W):** Measures how much power the EV is currently drawing.
-*   **Charger Start / Stop Buttons:** The `button` entities that start and stop a charging session.
+*   **Charger Start / Stop:** Either the two `button` entities that start and stop a charging session, or a single `switch` entity that does both.
 *   **Charger Current:** The entity to set the charging Amps (A).
 *   **Charger Status:** A sensor indicating status (e.g., "Charging", "Idle", "Connected", "B") used for Auto-Start detection.
+    *   **Statuses meaning "cable not plugged in":** Comma separated list of status values that mean no car is connected (not case sensitive). Default: `0, State A - Idle, False, No cable plugged` (ABB Terra AC). Any other status is treated as plugged in; `unavailable` and `unknown` always count as not plugged in.
 *   **Tariff Sensor (optional):** See the section above.
 
 ### Parameters

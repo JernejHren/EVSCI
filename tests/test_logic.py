@@ -18,7 +18,9 @@ from custom_components.evsci.logic import (
     Settings,
     decide,
     effective_charger_power,
+    is_idle_status,
     is_in_grace,
+    parse_idle_statuses,
     phase_headroom_amps,
     phase_overload,
     split_energy_power,
@@ -736,3 +738,35 @@ def test_without_grace_period_late_sensor_would_stop_charging_on_phases():
     d = decide(P3, _late_phase_sensor(grace_until=0))
     assert d.emergency is True
     assert d.target_amps <= 6
+
+
+# ---------------------------------------------------------------- statusi mirovanja
+
+def test_parse_idle_statuses_trims_lowercases_and_skips_empty():
+    assert parse_idle_statuses(" A ,B,, State A - Idle ") == ("a", "b", "state a - idle")
+    assert parse_idle_statuses("") == ()
+    assert parse_idle_statuses(None) == ()
+
+
+def test_default_idle_statuses_match_the_old_hardcoded_abb_list():
+    idle = parse_idle_statuses("0, State A - Idle, False, No cable plugged")
+    for value in ["0", "State A - Idle", "False", "No cable plugged", "unavailable", "unknown"]:
+        assert is_idle_status(value, idle), value
+    for value in ["1", "State B - Connected", "Charging", "B"]:
+        assert not is_idle_status(value, idle), value
+
+
+def test_idle_status_is_case_insensitive_and_ignores_surrounding_spaces():
+    idle = parse_idle_statuses("Disconnected")
+    assert is_idle_status("  DISCONNECTED ", idle)
+    assert not is_idle_status("Connected", idle)
+
+
+def test_unavailable_is_idle_even_with_an_empty_list():
+    assert is_idle_status("unavailable", ())
+    assert is_idle_status("Unknown", ())
+    assert not is_idle_status("A", ())
+
+
+def test_status_value_that_is_not_a_string_is_compared_as_text():
+    assert is_idle_status(0, parse_idle_statuses("0"))

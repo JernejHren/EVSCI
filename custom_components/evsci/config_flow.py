@@ -8,6 +8,9 @@ from .const import (
     DOMAIN,
     CONF_GRID_SENSOR,
     CONF_CHARGER_START_BUTTON,
+    CONF_CHARGER_SWITCH,
+    CONF_IDLE_STATUSES,
+    DEFAULT_IDLE_STATUSES,
     CONF_CHARGER_STOP_BUTTON,
     CONF_CHARGER_CURRENT,
     CONF_CHARGER_POWER,
@@ -42,6 +45,33 @@ from .const import (
     MODE_NO_CHANGE
 )
 
+CONTROL_OPTIONAL_FIELDS = [
+    CONF_CHARGER_START_BUTTON,
+    CONF_CHARGER_STOP_BUTTON,
+    CONF_CHARGER_SWITCH,
+    CONF_TARIFF_SENSOR,
+    CONF_EV_SOC_SENSOR,
+]
+
+
+def _clean_optional(user_input):
+    """Prazna neobvezna polja zapiše kot None, da se v možnostih prepišejo stare vrednosti."""
+    for key in CONTROL_OPTIONAL_FIELDS:
+        if user_input.get(key) in [None, "", []]:
+            user_input[key] = None
+    return user_input
+
+
+def _validate_controls(user_input):
+    """Polnilnik potrebuje stikalo ali par gumbov za start in stop."""
+    has_buttons = bool(user_input.get(CONF_CHARGER_START_BUTTON)) and bool(
+        user_input.get(CONF_CHARGER_STOP_BUTTON)
+    )
+    if has_buttons or user_input.get(CONF_CHARGER_SWITCH):
+        return {}
+    return {"base": "no_start_stop"}
+
+
 def _get_phases_schema(charger_phases):
     """Shema za senzorje toka po fazah. Faza polnilnika samo pri enofaznem polnilniku."""
     fields = {}
@@ -74,7 +104,11 @@ class EVSCIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_user(self, user_input=None):
         """Prva namestitev."""
+        errors = {}
         if user_input is not None:
+            user_input = _clean_optional(user_input)
+            errors = _validate_controls(user_input)
+        if user_input is not None and not errors:
             if user_input.get(CONF_FUSE_PROTECTION) == FUSE_PROTECTION_PER_PHASE:
                 self._user_data = user_input
                 return await self.async_step_phases()
@@ -95,13 +129,17 @@ class EVSCIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             CONF_LIMIT_BLOCK_4: 6000,
             CONF_LIMIT_BLOCK_5: 6000,
             CONF_AUTO_MODE: MODE_NO_CHANGE,
-            CONF_RESET_ON_UNPLUG: False
+            CONF_RESET_ON_UNPLUG: False,
+            CONF_IDLE_STATUSES: DEFAULT_IDLE_STATUSES,
         }
+        if user_input is not None:
+            defaults = {**defaults, **user_input}
 
         schema = self._get_schema()
         return self.async_show_form(
-            step_id="user", 
-            data_schema=self.add_suggested_values_to_schema(schema, defaults), 
+            step_id="user",
+            data_schema=self.add_suggested_values_to_schema(schema, defaults),
+            errors=errors,
         )
 
     async def async_step_phases(self, user_input=None):
@@ -121,11 +159,13 @@ class EVSCIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return vol.Schema({
             # --- SENZORJI ---
             vol.Required(CONF_GRID_SENSOR): selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor", device_class="power")),
-            vol.Required(CONF_CHARGER_START_BUTTON): selector.EntitySelector(selector.EntitySelectorConfig(domain="button")),
-            vol.Required(CONF_CHARGER_STOP_BUTTON): selector.EntitySelector(selector.EntitySelectorConfig(domain="button")),
+            vol.Optional(CONF_CHARGER_START_BUTTON): selector.EntitySelector(selector.EntitySelectorConfig(domain="button")),
+            vol.Optional(CONF_CHARGER_STOP_BUTTON): selector.EntitySelector(selector.EntitySelectorConfig(domain="button")),
+            vol.Optional(CONF_CHARGER_SWITCH): selector.EntitySelector(selector.EntitySelectorConfig(domain="switch")),
             vol.Required(CONF_CHARGER_CURRENT): selector.EntitySelector(selector.EntitySelectorConfig(domain="number")),
             vol.Required(CONF_CHARGER_POWER): selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor", device_class="power")),
             vol.Required(CONF_CHARGER_STATUS): selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor")),
+            vol.Optional(CONF_IDLE_STATUSES, default=DEFAULT_IDLE_STATUSES): str,
 
             vol.Optional(CONF_TARIFF_SENSOR): selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor")),
             vol.Optional(CONF_EV_SOC_SENSOR): selector.EntitySelector(selector.EntitySelectorConfig()),
@@ -169,12 +209,11 @@ class EVSCIOptionsFlowHandler(config_entries.OptionsFlow):
         self._user_input = {}
 
     async def async_step_init(self, user_input=None):
+        errors = {}
         if user_input is not None:
-            optional_fields = [CONF_TARIFF_SENSOR, CONF_EV_SOC_SENSOR]
-            for key in optional_fields:
-                if key not in user_input or user_input[key] in [None, "", []]:
-                    user_input[key] = None
-
+            user_input = _clean_optional(user_input)
+            errors = _validate_controls(user_input)
+        if user_input is not None and not errors:
             if user_input.get(CONF_FUSE_PROTECTION) == FUSE_PROTECTION_PER_PHASE:
                 self._user_input = user_input
                 return await self.async_step_phases()
@@ -185,12 +224,15 @@ class EVSCIOptionsFlowHandler(config_entries.OptionsFlow):
             return self.async_create_entry(title="", data=user_input)
 
         current_config = {**self.config_entry.data, **self.config_entry.options}
+        if user_input is not None:
+            current_config = {**current_config, **user_input}
         flow = EVSCIConfigFlow()
         schema = flow._get_schema()
 
         return self.async_show_form(
-            step_id="init", 
-            data_schema=self.add_suggested_values_to_schema(schema, current_config)
+            step_id="init",
+            data_schema=self.add_suggested_values_to_schema(schema, current_config),
+            errors=errors,
         )
 
     async def async_step_phases(self, user_input=None):

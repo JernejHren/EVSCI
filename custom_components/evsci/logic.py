@@ -363,3 +363,20 @@ def split_energy_power(charger_power: float, grid_power: float) -> tuple[float, 
         return 0.0, 0.0
     grid_share = min(charger_power, max(0.0, grid_power))
     return grid_share, charger_power - grid_share
+
+
+# Stanja, ki vedno pomenijo, da polnilnika ne vidimo (kabel obravnavamo kot odklopljen).
+ALWAYS_IDLE_STATES = ("unavailable", "unknown")
+
+
+def parse_idle_statuses(text) -> tuple[str, ...]:
+    """Iz niza, ločenega z vejicami, naredi seznam statusov mirovanja (brez presledkov, male črke)."""
+    if not text:
+        return ()
+    return tuple(part.strip().lower() for part in str(text).split(",") if part.strip())
+
+
+def is_idle_status(value, idle_statuses) -> bool:
+    """True, če status pomeni, da kabel ni priklopljen. Velike/male črke in presledki ne štejejo."""
+    normalized = str(value).strip().lower()
+    return normalized in ALWAYS_IDLE_STATES or normalized in idle_statuses

@@ -37,6 +37,10 @@ PHASE_SENSOR_KEYS = [CONF_PHASE_SENSOR_L1, CONF_PHASE_SENSOR_L2, CONF_PHASE_SENS
 CONF_CHARGER_PHASE = "charger_phase"     # faza enofaznega polnilnika
 CHARGER_PHASES = ["L1", "L2", "L3"]
 
+# Statusi polnilnika, ki pomenijo "kabel ni priklopljen" (ločeni z vejico)
+CONF_IDLE_STATUSES = "idle_statuses"
+DEFAULT_IDLE_STATUSES = "0, State A - Idle, False, No cable plugged"
+
 # Privzete vrednosti
 DEFAULT_VOLTAGE = 230
 DEFAULT_MIN_CURRENT = 6

@@ -6,11 +6,13 @@
         "description": "Povežite senzorje. Polja z oznako [Opcijsko] lahko pustite prazna.",
         "data": {
           "grid_sensor": "Senzor moči omrežja (W)",
-          "charger_start_button": "Gumb za začetek polnjenja",
-          "charger_stop_button": "Gumb za konec polnjenja",
+          "charger_start_button": "Gumb za zagon polnilnika [neobvezno]",
+          "charger_stop_button": "Gumb za ustavitev polnilnika [neobvezno]",
+          "charger_switch": "Stikalo za zagon/ustavitev polnilnika [neobvezno]",
           "charger_current": "Nastavitev toka (A)",
           "charger_power": "Senzor moči polnilnice (W)",
           "charger_status": "Status polnilnice (za zaznavo priklopa)",
+          "idle_statuses": "Statusi, ki pomenijo »kabel ni priklopljen« (ločeni z vejico)",
           "ev_soc_sensor": "Senzor baterije avtomobila (%) [Opcijsko]",
           "tariff_sensor": "Senzor tarifnega bloka (1-5) [Opcijsko]",
           "phases": "Število faz (1 ali 3)",
@@ -42,7 +44,8 @@
       }
     },
     "error": {
-      "unknown": "Neznana napaka"
+      "unknown": "Neznana napaka",
+      "no_start_stop": "Izberi gumb za zagon in gumb za ustavitev ali stikalo za zagon/ustavitev."
     },
     "abort": {
       "already_configured": "Naprava je že konfigurirana"
@@ -55,11 +58,13 @@
         "description": "Tukaj lahko spremenite limite in senzorje.",
         "data": {
           "grid_sensor": "Senzor moči omrežja (W)",
-          "charger_start_button": "Gumb za začetek polnjenja",
-          "charger_stop_button": "Gumb za konec polnjenja",
+          "charger_start_button": "Gumb za zagon polnilnika [neobvezno]",
+          "charger_stop_button": "Gumb za ustavitev polnilnika [neobvezno]",
+          "charger_switch": "Stikalo za zagon/ustavitev polnilnika [neobvezno]",
           "charger_current": "Nastavitev toka (A)",
           "charger_power": "Senzor moči polnilnice (W)",
           "charger_status": "Status polnilnice (za zaznavo priklopa)",
+          "idle_statuses": "Statusi, ki pomenijo »kabel ni priklopljen« (ločeni z vejico)",
           "ev_soc_sensor": "Senzor baterije avtomobila (%) [Opcijsko]",
           "tariff_sensor": "Senzor tarifnega bloka (1-5) [Opcijsko]",
           "phases": "Število faz (1 ali 3)",
@@ -91,7 +96,8 @@
       }
     },
     "error": {
-      "unknown": "Neznana napaka"
+      "unknown": "Neznana napaka",
+      "no_start_stop": "Izberi gumb za zagon in gumb za ustavitev ali stikalo za zagon/ustavitev."
     },
     "abort": {
       "already_configured": "Naprava je že konfigurirana"

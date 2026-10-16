@@ -5,6 +5,8 @@ All notable changes to EVSCI since 0.1.3.
 ## [Unreleased]
 
 ### Added
+- Charger start/stop can now be a start/stop switch instead of two buttons. Select either a start and a stop button, or a switch; the setup form tells you if neither is chosen.
+- New setting "Statuses meaning cable not plugged in" (comma separated, not case sensitive). The default is the previous ABB list (`0, State A - Idle, False, No cable plugged`), so other chargers can map their own idle statuses. `unavailable` and `unknown` always count as not plugged in.
 - Per-phase main fuse protection for 3-phase installations. New setting "Main Fuse Protection" (*Total house power only* or *Total house power and each phase*). In the second mode you pick the current sensors (A) of L1, L2 and L3, and EVSCI applies the total limit and the per-phase limit at the same time: the stricter one wins, so an overloaded phase lowers the charging current on all phases. For a single-phase charger you also choose which phase it is on. If a phase sensor is unavailable or stale, charging pauses (a warning is logged once).
 - Brand images (`icon`, `logo` and a dark logo, each with an @2x version) in `custom_components/evsci/brand/`, so the integration shows its icon in Home Assistant 2026.3 and newer.
 - Unit tests (`tests/`, run with `python -m pytest tests`) for the charging decisions: cold start, ramp-up steps, startup grace period, overload protection, stale data, Target SoC, PV-only pause and resume, and the solar/grid energy split.

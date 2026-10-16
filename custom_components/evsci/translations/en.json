@@ -6,11 +6,13 @@
         "description": "Connect your sensors. Fields marked [Optional] can be left empty.",
         "data": {
           "grid_sensor": "Grid Power Sensor (W)",
-          "charger_start_button": "Charger Start Button",
-          "charger_stop_button": "Charger Stop Button",
+          "charger_start_button": "Charger Start Button [Optional]",
+          "charger_stop_button": "Charger Stop Button [Optional]",
+          "charger_switch": "Charger Start/Stop Switch [Optional]",
           "charger_current": "Charger Current Control (A)",
           "charger_power": "Charger Power Sensor (W)",
           "charger_status": "Charger Status (for plug-in detection)",
+          "idle_statuses": "Statuses meaning \"cable not plugged in\" (comma separated)",
           "ev_soc_sensor": "EV Battery Sensor (%) [Optional]",
           "tariff_sensor": "Tariff Block Sensor (1-5) [Optional]",
           "phases": "Number of Phases (1 or 3)",
@@ -42,7 +44,8 @@
       }
     },
     "error": {
-      "unknown": "Unknown error"
+      "unknown": "Unknown error",
+      "no_start_stop": "Select a start and a stop button, or a start/stop switch."
     },
     "abort": {
       "already_configured": "Device is already configured"
@@ -55,11 +58,13 @@
         "description": "Update limits and sensors here.",
         "data": {
           "grid_sensor": "Grid Power Sensor (W)",
-          "charger_start_button": "Charger Start Button",
-          "charger_stop_button": "Charger Stop Button",
+          "charger_start_button": "Charger Start Button [Optional]",
+          "charger_stop_button": "Charger Stop Button [Optional]",
+          "charger_switch": "Charger Start/Stop Switch [Optional]",
           "charger_current": "Charger Current Control (A)",
           "charger_power": "Charger Power Sensor (W)",
           "charger_status": "Charger Status (for plug-in detection)",
+          "idle_statuses": "Statuses meaning \"cable not plugged in\" (comma separated)",
           "ev_soc_sensor": "EV Battery Sensor (%) [Optional]",
           "tariff_sensor": "Tariff Block Sensor (1-5) [Optional]",
           "phases": "Number of Phases (1 or 3)",
@@ -91,7 +96,8 @@
       }
     },
     "error": {
-      "unknown": "Unknown error"
+      "unknown": "Unknown error",
+      "no_start_stop": "Select a start and a stop button, or a start/stop switch."
     },
     "abort": {
       "already_configured": "Device is already configured"

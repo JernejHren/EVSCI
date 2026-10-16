@@ -24,6 +24,8 @@ from .const import (
     CONF_CHARGER_CURRENT,
     CONF_CHARGER_POWER,
     CONF_CHARGER_STATUS,
+    CONF_IDLE_STATUSES,
+    DEFAULT_IDLE_STATUSES,
     CONF_EV_SOC_SENSOR,
     CONF_PHASES,
     CONF_MAX_FUSE,
@@ -55,6 +57,8 @@ from .logic import (
     Inputs,
     Settings,
     decide,
+    is_idle_status,
+    parse_idle_statuses,
     split_energy_power,
     stable_min_charge_power,
 )
@@ -131,6 +135,10 @@ class EVSCICoordinator(DataUpdateCoordinator):
         self.charger_power_entity = o.get(CONF_CHARGER_POWER, d.get(CONF_CHARGER_POWER))
         self.charger_status_entity = o.get(CONF_CHARGER_STATUS, d.get(CONF_CHARGER_STATUS))
         self.ev_soc_entity = o.get(CONF_EV_SOC_SENSOR, d.get(CONF_EV_SOC_SENSOR))
+        idle_text = o.get(CONF_IDLE_STATUSES, d.get(CONF_IDLE_STATUSES))
+        if idle_text is None:
+            idle_text = DEFAULT_IDLE_STATUSES
+        self.idle_statuses = parse_idle_statuses(idle_text)
         
         self.phases = o.get(CONF_PHASES, d.get(CONF_PHASES, 3))
         self.max_fuse_amps = o.get(CONF_MAX_FUSE, d.get(CONF_MAX_FUSE, 25))
@@ -295,7 +303,7 @@ class EVSCICoordinator(DataUpdateCoordinator):
             status_state = self.hass.states.get(self.charger_status_entity)
             if status_state:
                 current_status_val = status_state.state
-                is_idle = current_status_val in ["0", "State A - Idle", "unavailable", "unknown", "False", "No cable plugged"]
+                is_idle = is_idle_status(current_status_val, self.idle_statuses)
                 is_connected_now = not is_idle
 
                 # Prvi prebran status po restartu uporabimo samo za inicializacijo
