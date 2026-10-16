@@ -19,6 +19,7 @@
           "voltage": "Supply Voltage (V)",
           "min_current": "Charger Minimum Current (A)",
           "max_current": "Charger Maximum Current (A)",
+          "fuse_protection": "Main Fuse Protection",
           "control_interval": "Current adjustment interval (s)",
           "auto_mode": "Default Mode on Plug-in",
           "reset_on_unplug": "Reset Mode to OFF on Unplug",
@@ -27,6 +28,16 @@
           "limit_block_3": "Limit Block 3 (W)",
           "limit_block_4": "Limit Block 4 (W)",
           "limit_block_5": "Limit Block 5 (W)"
+        }
+      },
+      "phases": {
+        "title": "EVSCI: Phase Current Sensors",
+        "description": "Select the current sensor (A) of each phase at your grid connection point. Sensors that report a sign (import +, export -) work best. A sensor that reports only the magnitude is treated as import, which is the safe side.",
+        "data": {
+          "phase_sensor_l1": "L1 Current Sensor (A)",
+          "phase_sensor_l2": "L2 Current Sensor (A)",
+          "phase_sensor_l3": "L3 Current Sensor (A)",
+          "charger_phase": "Charger Phase (single-phase charger)"
         }
       }
     },
@@ -57,6 +68,7 @@
           "voltage": "Supply Voltage (V)",
           "min_current": "Charger Minimum Current (A)",
           "max_current": "Charger Maximum Current (A)",
+          "fuse_protection": "Main Fuse Protection",
           "control_interval": "Current adjustment interval (s)",
           "auto_mode": "Default Mode on Plug-in",
           "reset_on_unplug": "Reset Mode to OFF on Unplug",
@@ -66,6 +78,16 @@
           "limit_block_4": "Limit Block 4 (W)",
           "limit_block_5": "Limit Block 5 (W)"
         }
+      },
+      "phases": {
+        "title": "EVSCI: Phase Current Sensors",
+        "description": "Select the current sensor (A) of each phase at your grid connection point. Sensors that report a sign (import +, export -) work best. A sensor that reports only the magnitude is treated as import, which is the safe side.",
+        "data": {
+          "phase_sensor_l1": "L1 Current Sensor (A)",
+          "phase_sensor_l2": "L2 Current Sensor (A)",
+          "phase_sensor_l3": "L3 Current Sensor (A)",
+          "charger_phase": "Charger Phase (single-phase charger)"
+        }
       }
     },
     "error": {
@@ -73,6 +95,21 @@
     },
     "abort": {
       "already_configured": "Device is already configured"
+    }
+  },
+  "selector": {
+    "fuse_protection": {
+      "options": {
+        "total": "Total house power",
+        "per_phase": "Per phase (3-phase, needs phase current sensors)"
+      }
+    },
+    "charger_phase": {
+      "options": {
+        "L1": "L1",
+        "L2": "L2",
+        "L3": "L3"
+      }
     }
   }
 }

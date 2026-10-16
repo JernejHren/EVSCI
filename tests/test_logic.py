@@ -19,6 +19,8 @@ from custom_components.evsci.logic import (
     decide,
     effective_charger_power,
     is_in_grace,
+    phase_headroom_amps,
+    phase_overload,
     split_energy_power,
     stable_min_charge_power,
 )
@@ -473,3 +475,230 @@ def test_split_energy_power_shares_sum_to_charger_power(grid):
     g, s = split_energy_power(2000, grid)
     assert g + s == 2000
     assert g >= 0 and s >= 0
+
+
+# ================================================================ zaščita varovalke po fazah
+#
+# Privzeto: 3f polnilnik, varovalka 25 A, buffer 500 W -> 0,72 A na fazo.
+# 1f polnilnik: 230 W/A, buffer 500 W -> 2,17 A na fazo.
+
+P3 = Settings(per_phase=True)
+P1_L1 = Settings(per_phase=True, phases=1, charger_phase=0)
+P1_L2 = Settings(per_phase=True, phases=1, charger_phase=1)
+
+
+def phased(currents, **overrides) -> Inputs:
+    """Vhod s tokovi po fazah; skupna moč omrežja je skladna s tokovi (230 V)."""
+    grid = overrides.pop("grid_power", float(sum(currents)) * 230)
+    return inputs(phase_currents=tuple(float(c) for c in currents), grid_power=grid, **overrides)
+
+
+def phased_charging(current, currents, **overrides) -> Inputs:
+    """3f polnilnik polni s tokom `current` na vseh fazah."""
+    power = float(current * PPA)
+    return phased(
+        currents, is_charging=True, current_amps=float(current), charger_power=power, **overrides
+    )
+
+
+def test_loaded_phases():
+    assert Settings(phases=3).loaded_phases == (0, 1, 2)
+    assert set(Settings(phases=3, charger_phase=2).loaded_phases) == {0, 1, 2}
+    assert Settings(phases=1, charger_phase=0).loaded_phases == (0,)
+    assert Settings(phases=1, charger_phase=2).loaded_phases == (2,)
+
+
+def test_phase_headroom_with_idle_charger():
+    inp = phased((8, 20, 9))
+    # najšibkejša faza L2: 25 - 20 = 5 A; za dvig še buffer 0,72 A
+    assert phase_headroom_amps(P3, inp, 0.0) == (5, 4)
+
+
+def test_phase_headroom_subtracts_charger_current_from_each_phase():
+    # polnilnik 10 A na vsaki fazi (6900 W); hiša sama: (10, 12, 9)
+    inp = phased((20, 22, 19))
+    assert phase_headroom_amps(P3, inp, 6900.0) == (13, 12)
+
+
+def test_phase_headroom_treats_negative_charger_power_as_zero():
+    inp = phased((10, 10, 10))
+    assert phase_headroom_amps(P3, inp, -100.0) == phase_headroom_amps(P3, inp, 0.0)
+
+
+def test_phase_overload_only_counts_phases_the_charger_loads():
+    inp = phased((12, 30, 9))
+    assert phase_overload(P3, inp) is True        # 3f polnilnik obremenjuje L2
+    assert phase_overload(P1_L1, inp) is False    # 1f polnilnik na L1 L2 ne obremenjuje
+    assert phase_overload(P1_L2, inp) is True
+
+
+def test_balanced_phases_give_same_result_as_total_protection():
+    inp = phased((10, 10, 10), mode=MODE_MAX_POWER)
+    assert decide(P3, inp).target_amps == decide(S, inp).target_amps == 14
+
+
+def test_unbalanced_phases_limit_start_by_weakest_phase():
+    # L2 je že pri 20 A: za dvig ostane 4 A (< 6 A), skupno povprečje bi dovolilo 11 A
+    inp = phased((8, 20, 9), mode=MODE_MAX_POWER)
+    assert decide(S, inp).target_amps == 11
+    d = decide(P3, inp)
+    assert d.target_amps == 0
+    assert d.session_active is False
+
+
+def test_unbalanced_phases_start_at_current_the_weakest_phase_allows():
+    d = decide(P3, phased((8, 17, 9), mode=MODE_MAX_POWER))
+    assert d.target_amps == 7
+    assert d.safety_amps_limit == 8        # 25 - 17
+    assert d.session_active is True
+
+
+def test_single_phase_charger_only_sees_its_own_phase():
+    inp = phased((20, 8, 9), mode=MODE_MAX_POWER)
+    assert decide(P1_L2, inp).target_amps == 14     # L2: 25 - 8 - 2,17 = 14,8
+    assert decide(P1_L1, inp).target_amps == 0      # L1: 25 - 20 - 2,17 = 2,8 < 6
+
+
+def test_single_phase_charger_ignores_total_house_power():
+    """1f polnilnik na 3f hiši: skupna moč hiše ni merilo za varovalko ene faze."""
+    inp = phased((25, 5, 25), mode=MODE_MAX_POWER)    # skupaj 12650 W
+    assert decide(Settings(phases=1), inp).target_amps == 0     # skupna zaščita: 5750 W varovalka
+    assert decide(P1_L2, inp).target_amps == 17                 # 25 - 5 - 2,17 = 17,8
+
+
+def test_charging_ramps_up_in_steps_limited_by_weakest_phase():
+    # hiša sama (10, 12, 9) pri polnilniku 10 A: za dvig 12 A
+    d = decide(P3, phased_charging(10, (20, 22, 19), mode=MODE_MAX_POWER))
+    assert d.target_amps == 12
+    assert d.emergency is False
+
+
+def test_charging_ramp_up_still_waits_for_interval():
+    d = decide(P3, phased_charging(10, (20, 22, 19), mode=MODE_MAX_POWER, last_amp_change_time=TOO_SOON))
+    assert d.target_amps == 10
+
+
+def test_phase_over_fuse_triggers_immediate_decrease():
+    # L1 meri 26 A > 25 A
+    d = decide(P3, phased_charging(20, (26, 24, 24), mode=MODE_MAX_POWER, last_amp_change_time=TOO_SOON))
+    assert d.emergency is True
+    assert d.target_amps == 6
+
+
+def test_overload_on_other_phase_does_not_stop_single_phase_charger():
+    inp = phased(
+        (12, 30, 9), mode=MODE_MAX_POWER, is_charging=True,
+        current_amps=10.0, charger_power=10 * 230.0,
+    )
+    d = decide(P1_L1, inp)
+    assert d.emergency is False
+    assert d.target_amps == 12
+
+
+# ---------------------------------------------------------------- izpad senzorjev po fazah
+
+def test_missing_phase_data_does_not_start_charging():
+    d = decide(P3, inputs(phase_currents=None, mode=MODE_MAX_POWER))
+    assert d.target_amps == 0
+    assert d.session_active is False
+    assert d.safety_amps_limit == 0
+
+
+def test_missing_phase_data_pauses_charging_after_interval():
+    d = decide(P3, inputs(phase_currents=None, is_charging=True, current_amps=12.0, charger_power=12 * PPA))
+    assert d.target_amps == 0
+    assert d.session_active is True     # seja ostane, tok je 0
+
+
+def test_missing_phase_data_holds_current_until_interval_elapsed():
+    d = decide(P3, inputs(
+        phase_currents=None, is_charging=True, current_amps=12.0,
+        charger_power=12 * PPA, last_amp_change_time=TOO_SOON,
+    ))
+    assert d.target_amps == 12
+
+
+def test_missing_phase_data_is_ignored_when_protection_is_total():
+    d = decide(S, inputs(phase_currents=None, mode=MODE_MAX_POWER))
+    assert d.target_amps == 19
+
+
+# ---------------------------------------------------------------- tarifni blok ostane skupen
+
+def test_block_limit_still_applies_with_phase_protection():
+    # blok 11000 W: (10500 - 3450) / 690 = 10 A, faze bi dovolile 19 A
+    d = decide(P3, phased((5, 5, 5), mode=MODE_DYNAMIC, block_limit_w=11000))
+    assert d.target_amps == 10
+
+
+def test_phase_limit_applies_when_stricter_than_block_limit():
+    inp = phased((2, 20, 2), mode=MODE_DYNAMIC, block_limit_w=11000)
+    assert decide(S, inp).target_amps == 7        # blok bi dovolil 7 A
+    assert decide(P3, inp).target_amps == 0       # L2 dovoli samo 4 A
+
+
+def test_block_overload_still_triggers_emergency_with_phase_protection():
+    inp = phased_charging(20, (21, 21, 21), mode=MODE_DYNAMIC, block_limit_w=11000,
+                          grid_power=14800.0, last_amp_change_time=TOO_SOON)
+    d = decide(P3, inp)
+    assert d.emergency is True
+    assert d.target_amps == 6
+
+
+def _block_mode_phase_limited(last_change):
+    """Dynamic: blok ima dovolj prostora, a avto vleče manj od ukazanega toka (15 A od 20 A),
+    zato je hiša na vsaki fazi že pri 22 A in faza dovoli samo še 18 A."""
+    return phased(
+        (22, 22, 22), mode=MODE_DYNAMIC, block_limit_w=20000,
+        is_charging=True, current_amps=20.0, charger_power=15.0 * PPA,
+        last_amp_change_time=last_change,
+    )
+
+
+def test_phase_limit_lowers_current_in_block_mode_after_interval():
+    d = decide(P3, _block_mode_phase_limited(ELAPSED))
+    assert d.emergency is False
+    assert d.safety_amps_limit == 18      # 25 - (22 - 15)
+    assert d.target_amps == 18
+
+
+def test_phase_limit_decrease_in_block_mode_waits_for_interval():
+    d = decide(P3, _block_mode_phase_limited(TOO_SOON))
+    assert d.target_amps == 20
+
+
+# ---------------------------------------------------------------- predznak toka
+
+def test_pv_only_with_signed_export_currents_is_not_limited_by_phases():
+    # izvoz 13 A na vsaki fazi: faze imajo dovolj prostora, omejuje višek (12 A)
+    d = decide(P3, phased((-13, -13, -13), mode=MODE_PV_ONLY, grid_power=-9000))
+    assert d.target_amps == 12
+
+
+def test_magnitude_only_sensor_is_treated_as_import_which_is_conservative():
+    # senzor brez predznaka javlja 13 A tudi pri izvozu: prostor je 25 - 13 - 0,72 = 11 A
+    d = decide(P3, phased((13, 13, 13), mode=MODE_PV_ONLY, grid_power=-9000))
+    assert d.target_amps == 11
+
+
+# ---------------------------------------------------------------- grace period po fazah
+
+def _late_phase_sensor(grace_until):
+    """Takoj po zagonu na 19 A: tokovi po fazah že kažejo polnjenje, senzor polnilnika še 0 W."""
+    return phased(
+        (22, 22, 22), mode=MODE_MAX_POWER, is_charging=True, current_amps=19.0,
+        charger_power=0.0, last_commanded_amps=19.0, grace_until=grace_until,
+    )
+
+
+def test_grace_period_estimates_charger_current_per_phase():
+    d = decide(P3, _late_phase_sensor(grace_until=1010))
+    assert d.in_grace is True
+    assert d.emergency is False
+    assert d.target_amps >= 19
+
+
+def test_without_grace_period_late_sensor_would_stop_charging_on_phases():
+    """Kontrola: brez grace perioda bi se hišna obremenitev faz napihnila in tok padel."""
+    d = decide(P3, _late_phase_sensor(grace_until=0))
+    assert d.target_amps == 0

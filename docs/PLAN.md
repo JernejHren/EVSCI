@@ -63,16 +63,18 @@ Odločitev o toku se izloči v čisto funkcijo (stanje noter, odločitev ven), k
 
 Pri 3f hiši uporabnik izbere, ali integracija ščiti varovalko po skupni porabi (privzeto) ali po posamezni fazi. Ocena je 1–1,5 delovnega dne.
 
-- [ ] Nova nastavitev "Zaščita varovalke" (*Skupna poraba* / *Po fazah*), vidna samo pri `phases = 3`.
-- [ ] Senzorji toka (A) za L1, L2 in L3, obvezni samo v načinu "Po fazah". Config flow pokaže polja pogojno (dva koraka ali pogojna shema) in prevodi v `en.json` in `sl.json`.
-- [ ] Izračun po fazah: `I_hiša,Lx = I_Lx − I_polnilnik,Lx`, dovoljen tok polnilnika je minimum čez vse faze, nato velja najstrožja od vseh omejitev.
-- [ ] Max Power postane "največ, kar prenese najšibkejša faza". Blok tarife in PV višek ostaneta pri skupni (neto) moči.
-- [ ] Nastavitev faze za enofazni polnilnik na 3f hiši. Pri 3f polnilniku se obremeni vse tri enako.
-- [ ] Če polnilnik ne daje toka po fazah, uporabi ukazani tok ali skupno moč, deljeno s tremi.
-- [ ] Pri zaščiti varovalke upoštevaj absolutno vrednost toka (izvoz obremeni fazo enako kot uvoz).
-- [ ] Izpad senzorja ene faze: vrnitev na povprečje s konzervativnim faktorjem ali pavza, nikoli tiho ignoriranje.
-- [ ] Grace period iz faze 1 velja tudi tu.
-- [ ] Unit testi z neuravnoteženimi scenariji (po izločitvi logike v fazi 2).
+- [x] Nova nastavitev "Zaščita varovalke" (*Skupna poraba* / *Po fazah*), vidna samo pri `phases = 3`.
+- [x] Senzorji toka (A) za L1, L2 in L3, obvezni samo v načinu "Po fazah". Config flow pokaže polja pogojno (dva koraka ali pogojna shema) in prevodi v `en.json` in `sl.json`.
+- [x] Izračun po fazah: `I_hiša,Lx = I_Lx − I_polnilnik,Lx`, dovoljen tok polnilnika je minimum čez vse faze, nato velja najstrožja od vseh omejitev.
+- [x] Max Power postane "največ, kar prenese najšibkejša faza". Blok tarife in PV višek ostaneta pri skupni (neto) moči.
+- [x] Nastavitev faze za enofazni polnilnik na 3f hiši. Pri 3f polnilniku se obremeni vse tri enako.
+- [x] Če polnilnik ne daje toka po fazah, uporabi ukazani tok ali skupno moč, deljeno s tremi.
+- [x] Predznak toka: uporabljamo podpisane tokove (uvoz +, izvoz −), ker izvoz ne obremeni varovalke kot uvoz. Senzor, ki daje samo velikost, se obravnava kot uvoz (konservativno). Odločitev se je spremenila glede na prvotni načrt (absolutna vrednost).
+- [x] Izpad senzorja ene faze: pavza (kot pri starih podatkih), enkratno opozorilo v dnevniku, nikoli tiho ignoriranje.
+- [x] Grace period iz faze 1 velja tudi tu.
+- [x] Unit testi z neuravnoteženimi scenariji (po izločitvi logike v fazi 2).
+
+Opomba: config flow in prevodi so preverjeni samo s stubi, ne z resničnim Home Assistantom. Na strojni opremi ni testirano.
 
 ## Faza 4: več polnilnikov
 

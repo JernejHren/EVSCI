@@ -19,6 +19,7 @@
           "voltage": "Napetost omrežja (V)",
           "min_current": "Najmanjši tok polnilnice (A)",
           "max_current": "Največji tok polnilnice (A)",
+          "fuse_protection": "Zaščita glavne varovalke",
           "control_interval": "Interval prilagajanja toka (s)",
           "auto_mode": "Privzeti način ob priklopu kabla",
           "reset_on_unplug": "Izklopi (OFF) ob odklopu kabla",
@@ -27,6 +28,16 @@
           "limit_block_3": "Limit Blok 3 (W)",
           "limit_block_4": "Limit Blok 4 (W)",
           "limit_block_5": "Limit Blok 5 (W)"
+        }
+      },
+      "phases": {
+        "title": "EVSCI: senzorji toka po fazah",
+        "description": "Izberite senzor toka (A) za vsako fazo na priključni točki. Najbolje delujejo senzorji s predznakom (uvoz +, izvoz -). Senzor, ki javlja samo velikost toka, se obravnava kot uvoz, kar je na varni strani.",
+        "data": {
+          "phase_sensor_l1": "Senzor toka L1 (A)",
+          "phase_sensor_l2": "Senzor toka L2 (A)",
+          "phase_sensor_l3": "Senzor toka L3 (A)",
+          "charger_phase": "Faza polnilnika (enofazni polnilnik)"
         }
       }
     },
@@ -57,6 +68,7 @@
           "voltage": "Napetost omrežja (V)",
           "min_current": "Najmanjši tok polnilnice (A)",
           "max_current": "Največji tok polnilnice (A)",
+          "fuse_protection": "Zaščita glavne varovalke",
           "control_interval": "Interval prilagajanja toka (s)",
           "auto_mode": "Privzeti način ob priklopu kabla",
           "reset_on_unplug": "Izklopi (OFF) ob odklopu kabla",
@@ -66,6 +78,16 @@
           "limit_block_4": "Limit Blok 4 (W)",
           "limit_block_5": "Limit Blok 5 (W)"
         }
+      },
+      "phases": {
+        "title": "EVSCI: senzorji toka po fazah",
+        "description": "Izberite senzor toka (A) za vsako fazo na priključni točki. Najbolje delujejo senzorji s predznakom (uvoz +, izvoz -). Senzor, ki javlja samo velikost toka, se obravnava kot uvoz, kar je na varni strani.",
+        "data": {
+          "phase_sensor_l1": "Senzor toka L1 (A)",
+          "phase_sensor_l2": "Senzor toka L2 (A)",
+          "phase_sensor_l3": "Senzor toka L3 (A)",
+          "charger_phase": "Faza polnilnika (enofazni polnilnik)"
+        }
       }
     },
     "error": {
@@ -73,6 +95,21 @@
     },
     "abort": {
       "already_configured": "Naprava je že konfigurirana"
+    }
+  },
+  "selector": {
+    "fuse_protection": {
+      "options": {
+        "total": "Po skupni porabi hiše",
+        "per_phase": "Po fazah (3f, zahteva senzorje toka)"
+      }
+    },
+    "charger_phase": {
+      "options": {
+        "L1": "L1",
+        "L2": "L2",
+        "L3": "L3"
+      }
     }
   }
 }

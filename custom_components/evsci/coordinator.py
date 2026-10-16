@@ -42,6 +42,12 @@ from .const import (
     DEFAULT_VOLTAGE,
     DEFAULT_MIN_CURRENT,
     DEFAULT_MAX_CURRENT,
+    CONF_FUSE_PROTECTION,
+    FUSE_PROTECTION_TOTAL,
+    FUSE_PROTECTION_PER_PHASE,
+    PHASE_SENSOR_KEYS,
+    CONF_CHARGER_PHASE,
+    CHARGER_PHASES,
 )
 from .logic import (
     CHARGING_POWER_THRESHOLD_W,
@@ -104,6 +110,7 @@ class EVSCICoordinator(DataUpdateCoordinator):
         self._update_id = 0
 
         self._current_unreadable_logged = False
+        self._phase_unavailable_logged = False
 
         # Spomin za tarifo
         self._last_valid_tariff = 1
@@ -138,6 +145,11 @@ class EVSCICoordinator(DataUpdateCoordinator):
         self.max_amps = o.get(CONF_MAX_CURRENT, d.get(CONF_MAX_CURRENT, DEFAULT_MAX_CURRENT))
 
         self.power_per_amp = self.voltage * self.phases
+        self.fuse_protection = o.get(CONF_FUSE_PROTECTION, d.get(CONF_FUSE_PROTECTION, FUSE_PROTECTION_TOTAL))
+        self.phase_entities = [o.get(key, d.get(key)) for key in PHASE_SENSOR_KEYS]
+        charger_phase_name = o.get(CONF_CHARGER_PHASE, d.get(CONF_CHARGER_PHASE)) or CHARGER_PHASES[0]
+        charger_phase = CHARGER_PHASES.index(charger_phase_name) if charger_phase_name in CHARGER_PHASES else 0
+
         self.settings = Settings(
             phases=self.phases,
             voltage=self.voltage,
@@ -146,6 +158,8 @@ class EVSCICoordinator(DataUpdateCoordinator):
             max_fuse_amps=self.max_fuse_amps,
             buffer_watts=self.buffer_watts,
             control_interval=self.control_interval,
+            per_phase=self.fuse_protection == FUSE_PROTECTION_PER_PHASE,
+            charger_phase=charger_phase,
         )
 
         self.block_limits = {
@@ -155,6 +169,40 @@ class EVSCICoordinator(DataUpdateCoordinator):
             4: o.get(CONF_LIMIT_BLOCK_4, d.get(CONF_LIMIT_BLOCK_4, 6000)),
             5: o.get(CONF_LIMIT_BLOCK_5, d.get(CONF_LIMIT_BLOCK_5, 6000)),
         }
+
+    @staticmethod
+    def _state_age_seconds(state):
+        """Starost zadnjega poročila senzorja (last_reported se osveži tudi pri nespremenjeni vrednosti)."""
+        last_seen = state.last_reported or state.last_updated
+        return (dt_util.utcnow() - last_seen).total_seconds()
+
+    def _read_phase_currents(self):
+        """Tokovi L1-L3 (A) ali None, če katerega ni mogoče zanesljivo prebrati.
+
+        None je pri zaščiti po fazah varno stanje (pavza), ker ne vemo, koliko
+        prostora je na najbolj obremenjeni fazi. Tiho ignoriranje ni sprejemljivo.
+        """
+        values = []
+        problem = None
+        for name, entity_id in zip(("L1", "L2", "L3"), self.phase_entities):
+            state = self.hass.states.get(entity_id) if entity_id else None
+            value = self._parse_float(state.state) if state else None
+            if value is None:
+                problem = f"{name} ({entity_id or 'ni nastavljen'}) ni berljiv"
+                break
+            age = self._state_age_seconds(state)
+            if age > STALE_DATA_THRESHOLD:
+                problem = f"{name} ({entity_id}) je star {age:.0f}s"
+                break
+            values.append(value)
+
+        if problem:
+            if not self._phase_unavailable_logged:
+                _LOGGER.warning("EVSCI: Tok po fazah: %s. Polnjenje v pavzi, dokler ni spet na voljo.", problem)
+                self._phase_unavailable_logged = True
+            return None
+        self._phase_unavailable_logged = False
+        return tuple(values)
 
     def _is_schedule_active(self):
         now = dt_util.now().time()
@@ -185,12 +233,11 @@ class EVSCICoordinator(DataUpdateCoordinator):
                 grid_power = float(grid_state.state)
                 # last_reported se osveži ob vsakem poročilu senzorja (tudi pri
                 # nespremenjeni vrednosti), last_updated samo ob spremembi.
-                last_seen = grid_state.last_reported or grid_state.last_updated
-                time_diff_sensor = dt_util.utcnow() - last_seen
-                if time_diff_sensor.total_seconds() > STALE_DATA_THRESHOLD:
+                age = self._state_age_seconds(grid_state)
+                if age > STALE_DATA_THRESHOLD:
                     data_is_stale = True
                     if self.selected_mode != MODE_OFF:
-                        _LOGGER.warning(f"EVSCI: Podatki omrežja stari {time_diff_sensor.total_seconds():.0f}s! Pavza.")
+                        _LOGGER.warning(f"EVSCI: Podatki omrežja stari {age:.0f}s! Pavza.")
             except (ValueError, TypeError):
                 data_is_stale = True
         else:
@@ -320,6 +367,8 @@ class EVSCICoordinator(DataUpdateCoordinator):
         if soc_limit_reached and self.is_charging:
             _LOGGER.debug(f"EVSCI: Cilj dosežen ({current_soc}%).")
 
+        phase_currents = self._read_phase_currents() if self.settings.per_phase else None
+
         decision = decide(
             self.settings,
             Inputs(
@@ -338,6 +387,7 @@ class EVSCICoordinator(DataUpdateCoordinator):
                 last_commanded_amps=self._last_commanded_amps,
                 pv_only_paused=self._pv_only_paused,
                 session_had_active_charge=self._session_had_active_charge,
+                phase_currents=phase_currents,
             ),
         )
 

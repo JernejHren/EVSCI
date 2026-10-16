@@ -25,6 +25,18 @@ CONF_VOLTAGE = "voltage"
 CONF_MIN_CURRENT = "min_current"
 CONF_MAX_CURRENT = "max_current"
 
+# Zaščita varovalke
+CONF_FUSE_PROTECTION = "fuse_protection"
+FUSE_PROTECTION_TOTAL = "total"          # po skupni porabi hiše (privzeto)
+FUSE_PROTECTION_PER_PHASE = "per_phase"  # po najšibkejši fazi (3f)
+FUSE_PROTECTION_MODES = [FUSE_PROTECTION_TOTAL, FUSE_PROTECTION_PER_PHASE]
+CONF_PHASE_SENSOR_L1 = "phase_sensor_l1"
+CONF_PHASE_SENSOR_L2 = "phase_sensor_l2"
+CONF_PHASE_SENSOR_L3 = "phase_sensor_l3"
+PHASE_SENSOR_KEYS = [CONF_PHASE_SENSOR_L1, CONF_PHASE_SENSOR_L2, CONF_PHASE_SENSOR_L3]
+CONF_CHARGER_PHASE = "charger_phase"     # faza enofaznega polnilnika
+CHARGER_PHASES = ["L1", "L2", "L3"]
+
 # Privzete vrednosti
 DEFAULT_VOLTAGE = 230
 DEFAULT_MIN_CURRENT = 6

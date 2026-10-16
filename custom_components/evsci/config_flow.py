@@ -24,6 +24,13 @@ from .const import (
     DEFAULT_VOLTAGE,
     DEFAULT_MIN_CURRENT,
     DEFAULT_MAX_CURRENT,
+    CONF_FUSE_PROTECTION,
+    FUSE_PROTECTION_TOTAL,
+    FUSE_PROTECTION_PER_PHASE,
+    FUSE_PROTECTION_MODES,
+    PHASE_SENSOR_KEYS,
+    CONF_CHARGER_PHASE,
+    CHARGER_PHASES,
     CONF_AUTO_MODE,
     CONF_RESET_ON_UNPLUG,
     CONF_LIMIT_BLOCK_1,
@@ -35,9 +42,30 @@ from .const import (
     MODE_NO_CHANGE
 )
 
+def _get_phases_schema(charger_phases):
+    """Shema za senzorje toka po fazah. Faza polnilnika samo pri enofaznem polnilniku."""
+    fields = {}
+    for key in PHASE_SENSOR_KEYS:
+        fields[vol.Required(key)] = selector.EntitySelector(
+            selector.EntitySelectorConfig(domain="sensor", device_class="current")
+        )
+    if charger_phases == 1:
+        fields[vol.Required(CONF_CHARGER_PHASE, default=CHARGER_PHASES[0])] = selector.SelectSelector(
+            selector.SelectSelectorConfig(
+                options=CHARGER_PHASES,
+                mode=selector.SelectSelectorMode.DROPDOWN,
+                translation_key=CONF_CHARGER_PHASE,
+            )
+        )
+    return vol.Schema(fields)
+
+
 class EVSCIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Obravnava config flow za EVSCI."""
     VERSION = 1
+
+    def __init__(self):
+        self._user_data = {}
 
     @staticmethod
     @callback
@@ -47,6 +75,9 @@ class EVSCIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_user(self, user_input=None):
         """Prva namestitev."""
         if user_input is not None:
+            if user_input.get(CONF_FUSE_PROTECTION) == FUSE_PROTECTION_PER_PHASE:
+                self._user_data = user_input
+                return await self.async_step_phases()
             return self.async_create_entry(title="EV Smart Charging", data=user_input)
 
         defaults = {
@@ -57,6 +88,7 @@ class EVSCIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             CONF_VOLTAGE: DEFAULT_VOLTAGE,
             CONF_MIN_CURRENT: DEFAULT_MIN_CURRENT,
             CONF_MAX_CURRENT: DEFAULT_MAX_CURRENT,
+            CONF_FUSE_PROTECTION: FUSE_PROTECTION_TOTAL,
             CONF_LIMIT_BLOCK_1: 6000,
             CONF_LIMIT_BLOCK_2: 6000,
             CONF_LIMIT_BLOCK_3: 6000,
@@ -70,6 +102,18 @@ class EVSCIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(
             step_id="user", 
             data_schema=self.add_suggested_values_to_schema(schema, defaults), 
+        )
+
+    async def async_step_phases(self, user_input=None):
+        """Dodaten korak: senzorji toka po fazah (samo pri zaščiti po fazah)."""
+        if user_input is not None:
+            return self.async_create_entry(
+                title="EV Smart Charging", data={**self._user_data, **user_input}
+            )
+
+        return self.async_show_form(
+            step_id="phases",
+            data_schema=_get_phases_schema(self._user_data.get(CONF_PHASES, 3)),
         )
 
     def _get_schema(self):
@@ -93,6 +137,13 @@ class EVSCIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             vol.Optional(CONF_VOLTAGE, default=DEFAULT_VOLTAGE): vol.All(int, vol.Range(min=100, max=480)),
             vol.Optional(CONF_MIN_CURRENT, default=DEFAULT_MIN_CURRENT): vol.All(int, vol.Range(min=1, max=32)),
             vol.Optional(CONF_MAX_CURRENT, default=DEFAULT_MAX_CURRENT): vol.All(int, vol.Range(min=6, max=80)),
+            vol.Required(CONF_FUSE_PROTECTION, default=FUSE_PROTECTION_TOTAL): selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=FUSE_PROTECTION_MODES,
+                    mode=selector.SelectSelectorMode.DROPDOWN,
+                    translation_key=CONF_FUSE_PROTECTION,
+                )
+            ),
             
             # NOVO: Interval
             vol.Required(CONF_CONTROL_INTERVAL): vol.All(int, vol.Range(min=5, max=300)),
@@ -115,7 +166,7 @@ class EVSCIOptionsFlowHandler(config_entries.OptionsFlow):
     """Obravnava spremembe nastavitev."""
 
     def __init__(self, config_entry):
-        pass
+        self._user_input = {}
 
     async def async_step_init(self, user_input=None):
         if user_input is not None:
@@ -124,6 +175,13 @@ class EVSCIOptionsFlowHandler(config_entries.OptionsFlow):
                 if key not in user_input or user_input[key] in [None, "", []]:
                     user_input[key] = None
 
+            if user_input.get(CONF_FUSE_PROTECTION) == FUSE_PROTECTION_PER_PHASE:
+                self._user_input = user_input
+                return await self.async_step_phases()
+
+            # Zaščita po skupni porabi: senzorjev po fazah ne potrebujemo.
+            for key in [*PHASE_SENSOR_KEYS, CONF_CHARGER_PHASE]:
+                user_input[key] = None
             return self.async_create_entry(title="", data=user_input)
 
         current_config = {**self.config_entry.data, **self.config_entry.options}
@@ -133,4 +191,16 @@ class EVSCIOptionsFlowHandler(config_entries.OptionsFlow):
         return self.async_show_form(
             step_id="init", 
             data_schema=self.add_suggested_values_to_schema(schema, current_config)
+        )
+
+    async def async_step_phases(self, user_input=None):
+        """Dodaten korak: senzorji toka po fazah."""
+        if user_input is not None:
+            return self.async_create_entry(title="", data={**self._user_input, **user_input})
+
+        current_config = {**self.config_entry.data, **self.config_entry.options}
+        schema = _get_phases_schema(self._user_input.get(CONF_PHASES, 3))
+        return self.async_show_form(
+            step_id="phases",
+            data_schema=self.add_suggested_values_to_schema(schema, current_config),
         )
