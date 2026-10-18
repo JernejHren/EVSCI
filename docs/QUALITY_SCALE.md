@@ -2,7 +2,7 @@
 
 Stanje: veja `devcl`, 18. 10. 2026. Pravila so vzeta iz `script/hassfest/quality_scale.py` v Home Assistant core (20 bronze, 10 silver, 21 gold, 3 platinum).
 
-**Kako je bilo preverjeno:** branje kode in dokumentacije. Pravega Home Assistanta v tem okolju ni bilo mogoče namestiti (gradnja odvisnosti `PyRIC` ne uspe), zato **hassfest ni bil zagnan** in HA testi niso bili izvedeni. Ocene označene z (?) je treba potrditi s hassfestom ali pravim HA.
+**Kako je bilo preverjeno:** branje kode in dokumentacije. Pravega Home Assistanta v tem okolju ni bilo mogoče namestiti (gradnja odvisnosti `PyRIC` ne uspe), zato **hassfest ni bil zagnan** in HA testi niso bili izvedeni. Vse ocene je zato treba potrditi s hassfestom, še posebej zahteve za `data_description`, `iot_class` in strukturo manifesta, ki jih navajam po spominu na pravila in ne po zagnanem preverjanju.
 
 Za custom integracije lestvica ni obvezna. Vseeno je dobra merilna letev in za HACS pomaga `hassfest` ter urejen manifest.
 
@@ -12,12 +12,12 @@ Legenda: **OK** izpolnjeno, **DELNO**, **TODO**, **N/A** (izvzeto z razlogom, v 
 
 | Stopnja | OK | Delno | TODO | N/A |
 |---|---|---|---|---|
-| Bronze (20) | 6 | 2 | 6 | 6 |
-| Silver (10) | 3 | 2 | 4 | 1 |
-| Gold (21) | 0 | 3 | 12 | 6 |
+| Bronze (20) | 5 | 3 | 6 | 6 |
+| Silver (10) | 3 | 1 | 4 | 2 |
+| Gold (21) | 0 | 2 | 14 | 5 |
 | Platinum (3) | 0 | 0 | 1 | 2 |
 
-Bronze je od izpolnitve oddaljen približno en delovni dan. Največji kos je testno pokritje (config flow, setup, entitete) z `pytest-homeassistant-custom-component`, ki ga je treba zagnati na stroju z delujočo namestitvijo.
+Bronze je po moji grobi oceni oddaljen približno en delovni dan dela. Največji kos je testno pokritje (config flow, setup, entitete) z `pytest-homeassistant-custom-component`, ki ga je treba zagnati na stroju z delujočo namestitvijo.
 
 ## Bronze
 
@@ -98,7 +98,7 @@ Bronze je od izpolnitve oddaljen približno en delovni dan. Največji kos je tes
 - `manifest.json`: manjka `issue_tracker` (HACS ga priporoča), `codeowners` je prazen, `iot_class` bi moral biti `calculated`.
 - Repozitorij nima CI (`.github/workflows`): hassfest, HACS validacija in `pytest` bi morali teči ob vsakem pushu.
 - `async_add_entities(..., True)` v platformah sproži nepotreben `update_before_add`; pri entitetah koordinatorja ni potreben.
-- Telefonsko preverjeno samo z unit testi in stubi; nič še ni bilo preizkušeno na pravem HA.
+- Vse je preverjeno samo z unit testi in stubi; nič še ni bilo preizkušeno na pravem HA.
 
 ## Predlagan vrstni red (iz plana ugotovitev)
 
