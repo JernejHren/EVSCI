@@ -1,12 +1,12 @@
 """Izbirnik načina za EVSCI."""
 from homeassistant.components.select import SelectEntity
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, MODES
+from .const import MODES
+from .coordinator import EVSCIConfigEntry
+from .entity import EVSCIEntity
 
 # Koordinator je en sam in pošilja ukaze polnilniku zaporedno; vzporednih posodobitev ne omejujemo
 # z semaforjem, ker entitete same ne kličejo naprave.
@@ -15,17 +15,16 @@ PARALLEL_UPDATES = 0
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    entry: ConfigEntry,
+    entry: EVSCIConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Nastavi select platformo."""
-    coordinator = hass.data[DOMAIN][entry.entry_id]
-    async_add_entities([EVSCIModeSelect(coordinator)], True)
+    coordinator = entry.runtime_data
+    async_add_entities([EVSCIModeSelect(coordinator)])
 
-class EVSCIModeSelect(CoordinatorEntity, SelectEntity, RestoreEntity):
+class EVSCIModeSelect(EVSCIEntity, SelectEntity, RestoreEntity):
     """Entiteta za izbiro načina polnjenja."""
 
-    _attr_has_entity_name = True
     _attr_name = "Charging Mode"
     _attr_icon = "mdi:car-electric"
     _attr_options = MODES

@@ -13,6 +13,9 @@ All notable changes to EVSCI since 0.1.3.
 - Unit tests (`tests/`, run with `python -m pytest tests`) for the charging decisions: cold start, ramp-up steps, startup grace period, overload protection, stale data, Target SoC, PV-only pause and resume, and the solar/grid energy split.
 
 ### Changed
+- Quality scale step 2: all entities now belong to one device, "EV Smart Charging". Existing installations keep their entity IDs and history (unique IDs are unchanged), but the friendly names now start with the device name. New installations get entity IDs with the device name as a prefix (for example `select.ev_smart_charging_charging_mode`); the examples in the README use the short IDs of existing installations.
+- Setup now waits (retries) when the grid sensor, charger current or charger power entity does not exist yet, which can happen at Home Assistant startup. The setup forms also check that the selected entities exist.
+- The coordinator is stored in `entry.runtime_data` instead of `hass.data`, and entities share the base class in `entity.py`.
 - Quality scale step 1: the manifest now lists a code owner, an issue tracker and `iot_class: calculated`; all platforms set `PARALLEL_UPDATES`; the setup forms have a description for every field (English and Slovenian).
 - Warnings about unavailable or stale sensors (grid, charger current, phase currents) are logged once when the problem starts, with an info message when the sensor is back. Before, the stale grid warning was repeated every 5 seconds.
 - The same charger can only be set up once: a second entry for the same charger current entity is rejected.

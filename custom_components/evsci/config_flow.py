@@ -72,6 +72,31 @@ def _validate_controls(user_input):
     return {"base": "no_start_stop"}
 
 
+ENTITY_FIELDS = [
+    CONF_GRID_SENSOR,
+    CONF_CHARGER_START_BUTTON,
+    CONF_CHARGER_STOP_BUTTON,
+    CONF_CHARGER_SWITCH,
+    CONF_CHARGER_CURRENT,
+    CONF_CHARGER_POWER,
+    CONF_CHARGER_STATUS,
+    CONF_TARIFF_SENSOR,
+    CONF_EV_SOC_SENSOR,
+]
+
+
+def _entity_errors(hass, user_input, keys):
+    """Preveri, da izbrane entitete obstajajo. Vrne (napake, nadomestila za opis)."""
+    missing = [
+        user_input[key]
+        for key in keys
+        if user_input.get(key) and hass.states.get(user_input[key]) is None
+    ]
+    if missing:
+        return {"base": "entity_not_found"}, {"entity": ", ".join(missing)}
+    return {}, {}
+
+
 def _get_phases_schema(charger_phases):
     """Shema za senzorje toka po fazah. Faza polnilnika samo pri enofaznem polnilniku."""
     fields = {}
@@ -105,9 +130,12 @@ class EVSCIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_user(self, user_input=None):
         """Prva namestitev."""
         errors = {}
+        placeholders = {}
         if user_input is not None:
             user_input = _clean_optional(user_input)
             errors = _validate_controls(user_input)
+            if not errors:
+                errors, placeholders = _entity_errors(self.hass, user_input, ENTITY_FIELDS)
         if user_input is not None and not errors:
             # En polnilnik (entiteta za nastavitev toka) sme imeti samo en vnos.
             await self.async_set_unique_id(user_input[CONF_CHARGER_CURRENT])
@@ -143,18 +171,25 @@ class EVSCIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="user",
             data_schema=self.add_suggested_values_to_schema(schema, defaults),
             errors=errors,
+            description_placeholders=placeholders,
         )
 
     async def async_step_phases(self, user_input=None):
         """Dodaten korak: senzorji toka po fazah (samo pri zaščiti po fazah)."""
+        errors = {}
+        placeholders = {}
         if user_input is not None:
-            return self.async_create_entry(
-                title="EV Smart Charging", data={**self._user_data, **user_input}
-            )
+            errors, placeholders = _entity_errors(self.hass, user_input, PHASE_SENSOR_KEYS)
+            if not errors:
+                return self.async_create_entry(
+                    title="EV Smart Charging", data={**self._user_data, **user_input}
+                )
 
         return self.async_show_form(
             step_id="phases",
             data_schema=_get_phases_schema(self._user_data.get(CONF_PHASES, 3)),
+            errors=errors,
+            description_placeholders=placeholders,
         )
 
     def _get_schema(self):
@@ -213,9 +248,12 @@ class EVSCIOptionsFlowHandler(config_entries.OptionsFlow):
 
     async def async_step_init(self, user_input=None):
         errors = {}
+        placeholders = {}
         if user_input is not None:
             user_input = _clean_optional(user_input)
             errors = _validate_controls(user_input)
+            if not errors:
+                errors, placeholders = _entity_errors(self.hass, user_input, ENTITY_FIELDS)
         if user_input is not None and not errors:
             if user_input.get(CONF_FUSE_PROTECTION) == FUSE_PROTECTION_PER_PHASE:
                 self._user_input = user_input
@@ -236,16 +274,23 @@ class EVSCIOptionsFlowHandler(config_entries.OptionsFlow):
             step_id="init",
             data_schema=self.add_suggested_values_to_schema(schema, current_config),
             errors=errors,
+            description_placeholders=placeholders,
         )
 
     async def async_step_phases(self, user_input=None):
         """Dodaten korak: senzorji toka po fazah."""
+        errors = {}
+        placeholders = {}
         if user_input is not None:
-            return self.async_create_entry(title="", data={**self._user_input, **user_input})
+            errors, placeholders = _entity_errors(self.hass, user_input, PHASE_SENSOR_KEYS)
+            if not errors:
+                return self.async_create_entry(title="", data={**self._user_input, **user_input})
 
         current_config = {**self.config_entry.data, **self.config_entry.options}
         schema = _get_phases_schema(self._user_input.get(CONF_PHASES, 3))
         return self.async_show_form(
             step_id="phases",
             data_schema=self.add_suggested_values_to_schema(schema, current_config),
+            errors=errors,
+            description_placeholders=placeholders,
         )

@@ -100,6 +100,8 @@ To work correctly, EVSCI needs to "see" your house:
 ---
 
 ## 📊 Dashboard Card
+
+> **Entity IDs:** The examples below use short IDs such as `select.charging_mode`. In the upcoming release all entities belong to the device *EV Smart Charging*. Installations that were set up before keep their old IDs. On a new installation the IDs start with the device name (for example `select.ev_smart_charging_charging_mode`), so adjust the card to your actual entity IDs.
 To get the full control panel (Mode selection, Gauges, Slider, Stats), use this YAML code in your Dashboard:
 code Yaml
 

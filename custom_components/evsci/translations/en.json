@@ -78,7 +78,8 @@
     },
     "error": {
       "unknown": "Unknown error",
-      "no_start_stop": "Select a start and a stop button, or a start/stop switch."
+      "no_start_stop": "Select a start and a stop button, or a start/stop switch.",
+      "entity_not_found": "Entity not found: {entity}. Check the selection; if it is disabled or not loaded yet, enable it first."
     },
     "abort": {
       "already_configured": "Device is already configured"
@@ -163,7 +164,8 @@
     },
     "error": {
       "unknown": "Unknown error",
-      "no_start_stop": "Select a start and a stop button, or a start/stop switch."
+      "no_start_stop": "Select a start and a stop button, or a start/stop switch.",
+      "entity_not_found": "Entity not found: {entity}. Check the selection; if it is disabled or not loaded yet, enable it first."
     },
     "abort": {
       "already_configured": "Device is already configured"

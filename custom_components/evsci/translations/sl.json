@@ -78,7 +78,8 @@
     },
     "error": {
       "unknown": "Neznana napaka",
-      "no_start_stop": "Izberi gumb za zagon in gumb za ustavitev ali stikalo za zagon/ustavitev."
+      "no_start_stop": "Izberi gumb za zagon in gumb za ustavitev ali stikalo za zagon/ustavitev.",
+      "entity_not_found": "Entiteta ni najdena: {entity}. Preveri izbiro; če je onemogočena ali še ni naložena, jo najprej omogoči."
     },
     "abort": {
       "already_configured": "Naprava je že konfigurirana"
@@ -163,7 +164,8 @@
     },
     "error": {
       "unknown": "Neznana napaka",
-      "no_start_stop": "Izberi gumb za zagon in gumb za ustavitev ali stikalo za zagon/ustavitev."
+      "no_start_stop": "Izberi gumb za zagon in gumb za ustavitev ali stikalo za zagon/ustavitev.",
+      "entity_not_found": "Entiteta ni najdena: {entity}. Preveri izbiro; če je onemogočena ali še ni naložena, jo najprej omogoči."
     },
     "abort": {
       "already_configured": "Naprava je že konfigurirana"

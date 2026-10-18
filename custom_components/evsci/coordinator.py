@@ -77,6 +77,7 @@ class EVSCICoordinator(DataUpdateCoordinator):
             hass,
             _LOGGER,
             name=DOMAIN,
+            config_entry=entry,
             update_interval=timedelta(seconds=5),
         )
         self.entry = entry
@@ -124,6 +125,15 @@ class EVSCICoordinator(DataUpdateCoordinator):
         self._last_valid_tariff = 1
         
         self._load_config()
+
+    def missing_entities(self) -> list[str]:
+        """Obvezne entitete, ki jih (še) ni v Home Assistantu. Prazen seznam = vse je tam."""
+        required = [
+            self.grid_entity,
+            self.charger_current_entity,
+            self.charger_power_entity,
+        ]
+        return [e for e in required if e and self.hass.states.get(e) is None]
 
     def _load_config(self):
         o = self.entry.options
@@ -524,3 +534,6 @@ class EVSCICoordinator(DataUpdateCoordinator):
     def set_mode(self, mode):
         self.selected_mode = mode
         self.async_set_updated_data(self.data)
+
+
+type EVSCIConfigEntry = ConfigEntry[EVSCICoordinator]

@@ -2,13 +2,12 @@
 from __future__ import annotations
 
 from homeassistant.components.number import NumberEntity
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN
+from .coordinator import EVSCIConfigEntry
+from .entity import EVSCIEntity
 
 
 # Koordinator je en sam in pošilja ukaze polnilniku zaporedno; vzporednih posodobitev ne omejujemo
@@ -18,20 +17,19 @@ PARALLEL_UPDATES = 0
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    entry: ConfigEntry,
+    entry: EVSCIConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Nastavi number platformo."""
-    coordinator = hass.data[DOMAIN][entry.entry_id]
+    coordinator = entry.runtime_data
     async_add_entities(
-        [EVSCITargetSocNumber(coordinator), EVSCILowTariffBlockNumber(coordinator)], True
+        [EVSCITargetSocNumber(coordinator), EVSCILowTariffBlockNumber(coordinator)]
     )
 
 
-class EVSCITargetSocNumber(CoordinatorEntity, NumberEntity, RestoreEntity):
+class EVSCITargetSocNumber(EVSCIEntity, NumberEntity, RestoreEntity):
     """Nastavitev ciljnega SoC (%), pri katerem se polnjenje ustavi."""
 
-    _attr_has_entity_name = True
     _attr_name = "Target SoC"
     _attr_icon = "mdi:battery-heart-variant"
     _attr_native_min_value = 0
@@ -71,10 +69,9 @@ class EVSCITargetSocNumber(CoordinatorEntity, NumberEntity, RestoreEntity):
         self.async_write_ha_state()
 
 
-class EVSCILowTariffBlockNumber(CoordinatorEntity, NumberEntity, RestoreEntity):
+class EVSCILowTariffBlockNumber(EVSCIEntity, NumberEntity, RestoreEntity):
     """Najvišji dovoljeni blok za način Low Tariff: polni v tem bloku in v cenejših (višjih številkah)."""
 
-    _attr_has_entity_name = True
     _attr_name = "Low Tariff Block"
     _attr_icon = "mdi:cash-clock"
     _attr_native_min_value = 1

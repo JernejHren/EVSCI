@@ -5,19 +5,23 @@ from homeassistant.components.sensor import (
     SensorStateClass,
     RestoreSensor, # NOVO: Za lifetime senzorje
 )
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.const import UnitOfPower, UnitOfElectricCurrent, UnitOfEnergy
 
-from .const import DOMAIN
+from .coordinator import EVSCIConfigEntry
+from .entity import EVSCIEntity
 
 # Koordinator je en sam in pošilja ukaze polnilniku zaporedno; vzporednih posodobitev ne omejujemo
 # z semaforjem, ker entitete same ne kličejo naprave.
 PARALLEL_UPDATES = 0
 
 
-async def async_setup_entry(hass, entry, async_add_entities):
+async def async_setup_entry(
+    hass: HomeAssistant, entry: EVSCIConfigEntry, async_add_entities: AddEntitiesCallback
+) -> None:
     """Nastavi senzorje."""
-    coordinator = hass.data[DOMAIN][entry.entry_id]
+    coordinator = entry.runtime_data
     
     sensors = [
         EVSCITargetCurrent(coordinator),
@@ -34,15 +38,13 @@ async def async_setup_entry(hass, entry, async_add_entities):
         EVSCILifetimeEnergy(coordinator, "lifetime_grid", "Lifetime Energy Grid"),
     ]
 
-    async_add_entities(sensors, True)
+    async_add_entities(sensors)
 
 
-class EVSCIBaseSensor(CoordinatorEntity, SensorEntity):
+class EVSCIBaseSensor(EVSCIEntity, SensorEntity):
     """Osnovni razred."""
     def __init__(self, coordinator):
         super().__init__(coordinator)
-        self._attr_has_entity_name = True
-        self._entry_id = coordinator.entry.entry_id
         self._last_update_id = None
 
     def _is_new_update(self, data) -> bool:

@@ -1,31 +1,29 @@
 """Time entitete za nastavljanje urnika."""
 import datetime
 from homeassistant.components.time import TimeEntity
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN
+from .coordinator import EVSCIConfigEntry
+from .entity import EVSCIEntity
 
 # Koordinator je en sam in pošilja ukaze polnilniku zaporedno; vzporednih posodobitev ne omejujemo
 # z semaforjem, ker entitete same ne kličejo naprave.
 PARALLEL_UPDATES = 0
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback):
+async def async_setup_entry(hass: HomeAssistant, entry: EVSCIConfigEntry, async_add_entities: AddEntitiesCallback):
     """Nastavi time entitete."""
-    coordinator = hass.data[DOMAIN][entry.entry_id]
+    coordinator = entry.runtime_data
     
     async_add_entities([
         EVSCIScheduleStart(coordinator),
         EVSCIScheduleEnd(coordinator),
-    ], True)
+    ])
 
-class EVSCIScheduleStart(CoordinatorEntity, TimeEntity, RestoreEntity):
+class EVSCIScheduleStart(EVSCIEntity, TimeEntity, RestoreEntity):
     """Ura za začetek polnjenja."""
-    _attr_has_entity_name = True
     _attr_name = "Schedule Start"
     _attr_icon = "mdi:clock-start"
 
@@ -56,9 +54,8 @@ class EVSCIScheduleStart(CoordinatorEntity, TimeEntity, RestoreEntity):
         # Sproži posodobitev, da se logika takoj preračuna
         await self.coordinator.async_refresh()
 
-class EVSCIScheduleEnd(CoordinatorEntity, TimeEntity, RestoreEntity):
+class EVSCIScheduleEnd(EVSCIEntity, TimeEntity, RestoreEntity):
     """Ura za konec polnjenja."""
-    _attr_has_entity_name = True
     _attr_name = "Schedule End"
     _attr_icon = "mdi:clock-end"
 

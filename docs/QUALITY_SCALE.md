@@ -12,9 +12,9 @@ Legenda: **OK** izpolnjeno, **DELNO**, **TODO**, **N/A** (izvzeto z razlogom, v 
 
 | Stopnja | OK | Delno | TODO | N/A |
 |---|---|---|---|---|
-| Bronze (20) | 8 | 1 | 5 | 6 |
+| Bronze (20) | 12 | 0 | 2 | 6 |
 | Silver (10) | 6 | 1 | 1 | 2 |
-| Gold (21) | 0 | 2 | 14 | 5 |
+| Gold (21) | 1 | 2 | 13 | 5 |
 | Platinum (3) | 0 | 0 | 1 | 2 |
 
 Bronze je po moji grobi oceni oddaljen približno en delovni dan dela. Največji kos je testno pokritje (config flow, setup, entitete) z `pytest-homeassistant-custom-component`, ki ga je treba zagnati na stroju z delujočo namestitvijo.
@@ -26,7 +26,7 @@ Bronze je po moji grobi oceni oddaljen približno en delovni dan dela. Največji
 | action-setup | N/A | Integracija nima lastnih akcij (servisov). |
 | appropriate-polling | OK | Koordinator se izvaja vsakih 5 s, a bere samo stanja iz HA (brez omrežnih klicev) in je regulacijska zanka. `iot_class` je zdaj `calculated`. |
 | brands | OK | Mapa `brand/` z icon, logo in dark_logo (+ @2x) za HA 2026.3+. |
-| common-modules | DELNO | Koordinator je v `coordinator.py`, entitete po platformah. Manjka skupni osnovni razred `entity.py`, ki bi nosil `DeviceInfo` in `has_entity_name`. |
+| common-modules | OK | Koordinator v `coordinator.py`, skupni osnovni razred entitet v `entity.py`, platforme v svojih datotekah. |
 | config-flow | OK | Nastavitev prek UI; polja imajo `data_description` (en, sl). Potrditi s hassfestom. |
 | config-flow-test-coverage | TODO | Ni testov config flowa z resničnim HA. Obstajajo samo ad hoc preverjanja s stubi. |
 | dependency-transparency | N/A | Brez zunanjih knjižnic (`requirements: []`). |
@@ -39,9 +39,9 @@ Bronze je po moji grobi oceni oddaljen približno en delovni dan dela. Največji
 | entity-event-setup | N/A | Entitete se ne naročajo na dogodke; podatke dobijo prek koordinatorja. |
 | entity-unique-id | OK | Vse entitete imajo `unique_id`, osnovan na `entry_id`. |
 | has-entity-name | OK | `_attr_has_entity_name = True` povsod. |
-| runtime-data | TODO | Uporablja se `hass.data[DOMAIN]`; pravilo zahteva `entry.runtime_data` s tipiziranim `ConfigEntry`. |
-| test-before-configure | TODO | Config flow ne preveri, da izbrane entitete obstajajo in so berljive. |
-| test-before-setup | TODO | `async_config_entry_first_refresh` je klican, a koordinator napake požre in nikoli ne sproži `ConfigEntryNotReady`/`UpdateFailed`. Pri manjkajoči entiteti se nastavitev izvede brez opozorila. |
+| runtime-data | OK | `entry.runtime_data` s tipom `EVSCIConfigEntry`; `hass.data` se ne uporablja več. |
+| test-before-configure | OK | Config in options flow preverita, da izbrane entitete (in senzorji faz) obstajajo; sicer napaka `entity_not_found`. Preverjeno s stubi. |
+| test-before-setup | OK | Če manjka omrežni senzor, tok ali moč polnilnika, `async_setup_entry` sproži `ConfigEntryNotReady` in HA poskusi znova. Preverjeno s stubi. |
 | unique-config-entry | OK | `unique_id` je entiteta za nastavitev toka polnilnika; drugi vnos za isti polnilnik se zavrne. Obstoječi vnosi brez `unique_id` niso zaščiteni. |
 
 ## Silver
@@ -63,7 +63,7 @@ Bronze je po moji grobi oceni oddaljen približno en delovni dan dela. Največji
 
 | Pravilo | Ocena | Opomba |
 |---|---|---|
-| devices | TODO | Entitete nimajo `DeviceInfo`, zato ni naprave. Obstoječi `entity_id` in `unique_id` se ne spremenijo. |
+| devices | OK | Vse entitete pripadajo ena napravi "EV Smart Charging" (`DeviceInfo`, `entry_type=SERVICE`). `unique_id` se niso spremenili. |
 | diagnostics | TODO | Ni `diagnostics.py`. |
 | discovery | N/A | Ni odkrivanja (virtualna integracija). |
 | discovery-update-info | N/A | Isto. |
@@ -97,13 +97,13 @@ Bronze je po moji grobi oceni oddaljen približno en delovni dan dela. Največji
 
 - `manifest.json`: `codeowners`, `issue_tracker` in `iot_class` so urejeni (korak 1). `integration_type` ni nastavljen, ker nisem prepričan, katera vrednost ustreza; potrditi s hassfestom.
 - Repozitorij nima CI (`.github/workflows`): hassfest, HACS validacija in `pytest` bi morali teči ob vsakem pushu.
-- `async_add_entities(..., True)` v platformah sproži nepotreben `update_before_add`; pri entitetah koordinatorja ni potreben.
+- `async_add_entities(..., True)` je odstranjen (nepotreben `update_before_add`).
 - Vse je preverjeno samo z unit testi in stubi; nič še ni bilo preizkušeno na pravem HA.
 
 ## Predlagan vrstni red (iz plana ugotovitev)
 
 1. **Hitre zmage, majhno tveganje (NAREJENO):** `codeowners`, `issue_tracker`, `iot_class`, `PARALLEL_UPDATES`, log-when-unavailable (enkratno opozorilo + sporočilo ob vrnitvi), unique config entry, `data_description` v obeh prevodih.
-2. **Bronze/Silver strukturno:** `runtime_data`, `entity.py` z `DeviceInfo` (naprava), `test-before-configure`/`test-before-setup` (ConfigEntryNotReady).
+2. **Bronze/Silver strukturno (NAREJENO):** `runtime_data`, `entity.py` z `DeviceInfo` (naprava), `test-before-configure`/`test-before-setup` (ConfigEntryNotReady).
 3. **Gold uporabniška izkušnja:** entity translations + `icons.json`, kategorije in privzeto onemogočene entitete, diagnostika, reconfigure flow, repair issues.
 4. **Dokumentacija:** razdelki odstranitev, posodabljanje podatkov, omejitve, podprti polnilniki, odpravljanje težav, primeri.
 5. **Testi in CI:** HA testi (config flow, setup, entitete) na stroju s pravim HA, hassfest + HACS action v GitHub Actions, nato `quality_scale.yaml` in `mypy --strict` za Platinum.
