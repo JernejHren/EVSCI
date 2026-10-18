@@ -99,6 +99,10 @@ Opomba: config flow in prevodi so spet preverjeni samo s stubi. Podprtost drugih
 - [ ] Migracija: prvi polnilnik ohrani obstoječe `unique_id` (temeljijo na `entry_id`), sicer uporabniki izgubijo zgodovino in dashboarde.
 - [ ] Testiranje razdeljevanja s simulacijo, ker je na pravi opremi verjetno le en polnilnik.
 
+## Faza 5: Home Assistant Quality Scale
+
+Pregled stanja je v `docs/QUALITY_SCALE.md` (brez zagona hassfest). Izpolnitev se razdeli po vrstnem redu iz tega dokumenta.
+
 ## Odločitve
 
 Vseh šest vprašanj je rešenih.
