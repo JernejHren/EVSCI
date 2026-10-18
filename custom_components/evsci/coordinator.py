@@ -25,6 +25,7 @@ from .const import (
     CONF_CHARGER_POWER,
     CONF_CHARGER_STATUS,
     CONF_IDLE_STATUSES,
+    DEFAULT_LOW_TARIFF_BLOCK,
     DEFAULT_IDLE_STATUSES,
     CONF_EV_SOC_SENSOR,
     CONF_PHASES,
@@ -89,6 +90,8 @@ class EVSCICoordinator(DataUpdateCoordinator):
         self._session_had_active_charge = False
         
         self.user_target_soc = 100 
+        self.user_low_tariff_block = DEFAULT_LOW_TARIFF_BLOCK
+        self._tariff_seen_valid = False
         
         self.schedule_start = datetime.time(22, 0)
         self.schedule_end = datetime.time(6, 0)
@@ -254,6 +257,7 @@ class EVSCICoordinator(DataUpdateCoordinator):
         raw_tariff = self._get_int_state(self.tariff_entity, -1)
         if 1 <= raw_tariff <= 5:
             self._last_valid_tariff = raw_tariff
+            self._tariff_seen_valid = True
             tariff = raw_tariff
         else:
             tariff = self._last_valid_tariff
@@ -396,6 +400,9 @@ class EVSCICoordinator(DataUpdateCoordinator):
                 pv_only_paused=self._pv_only_paused,
                 session_had_active_charge=self._session_had_active_charge,
                 phase_currents=phase_currents,
+                tariff_block=tariff,
+                low_tariff_block=self.user_low_tariff_block,
+                tariff_known=bool(self.tariff_entity) and self._tariff_seen_valid,
             ),
         )
 

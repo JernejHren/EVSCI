@@ -16,6 +16,7 @@ from .const import (
     MODE_MIN_PV,
     MODE_OFF,
     MODE_PV_ONLY,
+    MODE_LOW_TARIFF,
     MODE_SCHEDULE,
 )
 
@@ -26,6 +27,10 @@ RAMP_UP_STEP = 2.0
 STARTUP_GRACE_SECONDS = 15.0
 # Nad to močjo štejemo, da polnilnik dejansko polni.
 CHARGING_POWER_THRESHOLD_W = 50.0
+
+
+# Načini, ki upoštevajo limit trenutnega tarifnega bloka.
+BLOCK_MODES = (MODE_DYNAMIC, MODE_SCHEDULE, MODE_LOW_TARIFF)
 
 
 @dataclass(frozen=True)
@@ -83,6 +88,11 @@ class Inputs:
     # Tok po fazah L1-L3 na priključni točki (A, + = uvoz). ``None`` pomeni, da
     # podatka ni ali je star; pri zaščiti po fazah je to varno stanje (pavza).
     phase_currents: tuple[float, float, float] | None = None
+    # Tarifni blok (1-5, višji = ceneje) za način Low Tariff. ``tariff_known`` je False,
+    # kadar senzorja tarife ni ali še ni dal veljavne vrednosti: takrat ne polnimo.
+    tariff_block: int = 1
+    low_tariff_block: int = 3
+    tariff_known: bool = True
 
 
 @dataclass(frozen=True)
@@ -160,6 +170,10 @@ def mode_target_amps(settings: Settings, inp: Inputs, charger_power_eff: float) 
     if mode == MODE_SCHEDULE:
         return (settings.max_amps if inp.schedule_active else 0), excess_w
 
+    if mode == MODE_LOW_TARIFF:
+        cheap_enough = inp.tariff_known and inp.tariff_block >= inp.low_tariff_block
+        return (settings.max_amps if cheap_enough else 0), excess_w
+
     if mode in (MODE_PV_ONLY, MODE_MIN_PV):
         excess_w = charger_power_eff - inp.grid_power
         if mode == MODE_PV_ONLY and inp.pv_only_paused:
@@ -199,7 +213,7 @@ def decide(settings: Settings, inp: Inputs) -> Decision:
 
     house_ppa = settings.voltage * settings.house_phases
     fuse_limit_w = settings.max_fuse_amps * house_ppa
-    if inp.mode in (MODE_DYNAMIC, MODE_SCHEDULE):
+    if inp.mode in BLOCK_MODES:
         limit_base = inp.block_limit_w
     else:
         limit_base = fuse_limit_w
@@ -223,7 +237,7 @@ def decide(settings: Settings, inp: Inputs) -> Decision:
         math.floor((limit_increase - house_load) / ppa), settings.max_fuse_amps
     )
 
-    block_mode = inp.mode in (MODE_DYNAMIC, MODE_SCHEDULE)
+    block_mode = inp.mode in BLOCK_MODES
     per_phase_ok = settings.per_phase and inp.phase_currents is not None
     if per_phase_ok:
         # Skupna omejitev (varovalka oz. blok tarife) velja vedno; zaščita po

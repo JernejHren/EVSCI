@@ -18,7 +18,9 @@ async def async_setup_entry(
 ) -> None:
     """Nastavi number platformo."""
     coordinator = hass.data[DOMAIN][entry.entry_id]
-    async_add_entities([EVSCITargetSocNumber(coordinator)], True)
+    async_add_entities(
+        [EVSCITargetSocNumber(coordinator), EVSCILowTariffBlockNumber(coordinator)], True
+    )
 
 
 class EVSCITargetSocNumber(CoordinatorEntity, NumberEntity, RestoreEntity):
@@ -60,5 +62,44 @@ class EVSCITargetSocNumber(CoordinatorEntity, NumberEntity, RestoreEntity):
     async def async_set_native_value(self, value: float) -> None:
         """Uporabnik spremeni ciljni SoC."""
         self.coordinator.user_target_soc = int(value)
+        await self.coordinator.async_refresh()
+        self.async_write_ha_state()
+
+
+class EVSCILowTariffBlockNumber(CoordinatorEntity, NumberEntity, RestoreEntity):
+    """Najvišji dovoljeni blok za način Low Tariff: polni v tem bloku in v cenejših (višjih številkah)."""
+
+    _attr_has_entity_name = True
+    _attr_name = "Low Tariff Block"
+    _attr_icon = "mdi:cash-clock"
+    _attr_native_min_value = 1
+    _attr_native_max_value = 5
+    _attr_native_step = 1
+    _attr_mode = "box"
+
+    def __init__(self, coordinator) -> None:
+        super().__init__(coordinator)
+        self._attr_unique_id = f"{coordinator.entry.entry_id}_low_tariff_block"
+
+    async def async_added_to_hass(self) -> None:
+        """Ob zagonu obnovi zadnjo vrednost."""
+        await super().async_added_to_hass()
+        last_state = await self.async_get_last_state()
+        if not last_state or last_state.state in ("unknown", "unavailable"):
+            return
+        try:
+            restored = int(float(last_state.state))
+        except (ValueError, TypeError):
+            return
+        self.coordinator.user_low_tariff_block = max(1, min(5, restored))
+        await self.coordinator.async_refresh()
+        self.async_write_ha_state()
+
+    @property
+    def native_value(self) -> int:
+        return int(self.coordinator.user_low_tariff_block)
+
+    async def async_set_native_value(self, value: float) -> None:
+        self.coordinator.user_low_tariff_block = max(1, min(5, int(value)))
         await self.coordinator.async_refresh()
         self.async_write_ha_state()

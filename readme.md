@@ -45,6 +45,7 @@ Leave the **Tariff Block Sensor** field empty. EVSCI then always uses block 1.
 *   **Max Power:** Charges at the maximum speed allowed by your **Main Fuse**.
     *   *Warning:* This ignores Tariff Block limits and might incur grid fees, but ensures the fastest charge without tripping the physical fuse.
 *   **Schedule:** Works like *Dynamic*, but only within the time window you define (e.g., 22:00 - 06:00). Outside this window, charging is paused (0A).
+*   **Low Tariff:** Works like *Dynamic* (it respects the limit of the current tariff block), but charges only while the tariff block is the selected one or a cheaper one. Set the block with the **Low Tariff Block** number entity (1-5, default 3). A higher block number means a cheaper tariff, so with 3 selected it charges in blocks 3, 4 and 5 and pauses (0A) in blocks 2 and 1. Requires the Tariff Sensor; without it this mode never charges.
 
 ---
 

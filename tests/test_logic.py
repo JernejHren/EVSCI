@@ -7,6 +7,7 @@ import pytest
 
 from custom_components.evsci.const import (
     MODE_DYNAMIC,
+    MODE_LOW_TARIFF,
     MODE_MAX_POWER,
     MODE_MIN_PV,
     MODE_OFF,
@@ -770,3 +771,61 @@ def test_unavailable_is_idle_even_with_an_empty_list():
 
 def test_status_value_that_is_not_a_string_is_compared_as_text():
     assert is_idle_status(0, parse_idle_statuses("0"))
+
+
+# ---------------------------------------------------------------- način Low Tariff
+
+def low(block, n=3, **overrides):
+    return inputs(mode=MODE_LOW_TARIFF, tariff_block=block, low_tariff_block=n, **overrides)
+
+
+@pytest.mark.parametrize("block", [3, 4, 5])
+def test_low_tariff_charges_in_selected_or_cheaper_block(block):
+    assert decide(S, low(block, grid_power=3000.0)).target_amps > 0
+
+
+@pytest.mark.parametrize("block", [1, 2])
+def test_low_tariff_does_not_start_in_more_expensive_block(block):
+    assert decide(S, low(block)).target_amps == 0
+
+
+def test_low_tariff_uses_block_limit_like_dynamic():
+    # blok 3 dovoli 6000 W, hiša troši 3000 W: ostane manj kot minimum -> ne polni
+    assert decide(S, low(3, grid_power=3000.0, block_limit_w=6000.0)).target_amps == 0
+    # blok z 11000 W: (11000 - 500 buffer - 3000) / 690 = 10 A, enako kot Dynamic
+    low_d = decide(S, low(3, grid_power=3000.0, block_limit_w=11000.0))
+    dyn_d = decide(S, inputs(mode=MODE_DYNAMIC, grid_power=3000.0, block_limit_w=11000.0))
+    assert low_d.target_amps == dyn_d.target_amps == 10
+
+
+def test_low_tariff_block_five_selected_only_charges_in_block_five():
+    assert decide(S, low(5, n=5, grid_power=3000.0)).target_amps > 0
+    assert decide(S, low(4, n=5, grid_power=3000.0)).target_amps == 0
+
+
+def test_low_tariff_block_one_selected_charges_in_every_block():
+    for block in range(1, 6):
+        assert decide(S, low(block, n=1, grid_power=3000.0)).target_amps > 0
+
+
+def test_low_tariff_without_known_tariff_never_charges():
+    assert decide(S, low(5, tariff_known=False, grid_power=3000.0)).target_amps == 0
+
+
+def _charging_in_low_tariff(block, last_change):
+    return low(block, grid_power=3000.0 + 12 * PPA, is_charging=True, current_amps=12.0,
+               charger_power=12.0 * PPA, last_amp_change_time=last_change, block_limit_w=20000.0)
+
+
+def test_low_tariff_stops_when_block_gets_more_expensive():
+    assert decide(S, _charging_in_low_tariff(3, ELAPSED)).target_amps >= 12
+    assert decide(S, _charging_in_low_tariff(2, ELAPSED)).target_amps == 0
+    assert decide(S, _charging_in_low_tariff(1, ELAPSED)).target_amps == 0
+
+
+def test_low_tariff_stop_waits_for_control_interval():
+    assert decide(S, _charging_in_low_tariff(2, TOO_SOON)).target_amps == 12
+
+
+def test_low_tariff_keeps_charging_when_block_gets_cheaper():
+    assert decide(S, _charging_in_low_tariff(4, ELAPSED)).target_amps >= 12
