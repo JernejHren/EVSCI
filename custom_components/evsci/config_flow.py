@@ -109,6 +109,9 @@ class EVSCIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             user_input = _clean_optional(user_input)
             errors = _validate_controls(user_input)
         if user_input is not None and not errors:
+            # En polnilnik (entiteta za nastavitev toka) sme imeti samo en vnos.
+            await self.async_set_unique_id(user_input[CONF_CHARGER_CURRENT])
+            self._abort_if_unique_id_configured()
             if user_input.get(CONF_FUSE_PROTECTION) == FUSE_PROTECTION_PER_PHASE:
                 self._user_data = user_input
                 return await self.async_step_phases()

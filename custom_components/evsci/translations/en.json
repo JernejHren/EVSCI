@@ -30,6 +30,33 @@
           "limit_block_3": "Limit Block 3 (W)",
           "limit_block_4": "Limit Block 4 (W)",
           "limit_block_5": "Limit Block 5 (W)"
+        },
+        "data_description": {
+          "grid_sensor": "Power sensor (W) at your grid connection point. Positive = importing, negative = exporting.",
+          "charger_start_button": "Button that starts charging. Use together with the stop button, or use the switch instead.",
+          "charger_stop_button": "Button that stops charging. Use together with the start button, or use the switch instead.",
+          "charger_switch": "Single switch that starts (on) and stops (off) charging. Use this instead of the two buttons.",
+          "charger_current": "Number entity that sets the charging current in amps.",
+          "charger_power": "Sensor with the power the charger is drawing right now (W).",
+          "charger_status": "Sensor with the charger status, used to detect when a car is plugged in.",
+          "idle_statuses": "Status values that mean no car is connected, separated by commas. Not case sensitive. \"unavailable\" and \"unknown\" always count.",
+          "ev_soc_sensor": "Car battery level (%). Needed for the Target SoC limit.",
+          "tariff_sensor": "Sensor with the current tariff block (1-5). Needed for the Dynamic, Schedule and Low Tariff modes.",
+          "phases": "Number of phases of your charger installation.",
+          "max_fuse": "Main fuse rating per phase in amps.",
+          "buffer": "Safety reserve in watts kept below the limit.",
+          "voltage": "Phase voltage used to convert amps to watts.",
+          "min_current": "Lowest current the charger can be set to, in amps.",
+          "max_current": "Highest current the charger can be set to, in amps.",
+          "fuse_protection": "Total house power only, or total plus each phase (3-phase, needs a current sensor per phase).",
+          "control_interval": "Minimum time in seconds between current changes while charging. Decreases on overload are immediate.",
+          "auto_mode": "Charging mode that is selected when a car is plugged in.",
+          "reset_on_unplug": "Switch the mode back to OFF when the car is unplugged.",
+          "limit_block_1": "Power limit in watts for tariff block 1.",
+          "limit_block_2": "Power limit in watts for tariff block 2.",
+          "limit_block_3": "Power limit in watts for tariff block 3.",
+          "limit_block_4": "Power limit in watts for tariff block 4.",
+          "limit_block_5": "Power limit in watts for tariff block 5."
         }
       },
       "phases": {
@@ -40,6 +67,12 @@
           "phase_sensor_l2": "L2 Current Sensor (A)",
           "phase_sensor_l3": "L3 Current Sensor (A)",
           "charger_phase": "Charger Phase (single-phase charger)"
+        },
+        "data_description": {
+          "phase_sensor_l1": "Current sensor (A) of phase L1 at the grid connection point.",
+          "phase_sensor_l2": "Current sensor (A) of phase L2 at the grid connection point.",
+          "phase_sensor_l3": "Current sensor (A) of phase L3 at the grid connection point.",
+          "charger_phase": "Phase the single-phase charger is connected to."
         }
       }
     },
@@ -82,6 +115,33 @@
           "limit_block_3": "Limit Block 3 (W)",
           "limit_block_4": "Limit Block 4 (W)",
           "limit_block_5": "Limit Block 5 (W)"
+        },
+        "data_description": {
+          "grid_sensor": "Power sensor (W) at your grid connection point. Positive = importing, negative = exporting.",
+          "charger_start_button": "Button that starts charging. Use together with the stop button, or use the switch instead.",
+          "charger_stop_button": "Button that stops charging. Use together with the start button, or use the switch instead.",
+          "charger_switch": "Single switch that starts (on) and stops (off) charging. Use this instead of the two buttons.",
+          "charger_current": "Number entity that sets the charging current in amps.",
+          "charger_power": "Sensor with the power the charger is drawing right now (W).",
+          "charger_status": "Sensor with the charger status, used to detect when a car is plugged in.",
+          "idle_statuses": "Status values that mean no car is connected, separated by commas. Not case sensitive. \"unavailable\" and \"unknown\" always count.",
+          "ev_soc_sensor": "Car battery level (%). Needed for the Target SoC limit.",
+          "tariff_sensor": "Sensor with the current tariff block (1-5). Needed for the Dynamic, Schedule and Low Tariff modes.",
+          "phases": "Number of phases of your charger installation.",
+          "max_fuse": "Main fuse rating per phase in amps.",
+          "buffer": "Safety reserve in watts kept below the limit.",
+          "voltage": "Phase voltage used to convert amps to watts.",
+          "min_current": "Lowest current the charger can be set to, in amps.",
+          "max_current": "Highest current the charger can be set to, in amps.",
+          "fuse_protection": "Total house power only, or total plus each phase (3-phase, needs a current sensor per phase).",
+          "control_interval": "Minimum time in seconds between current changes while charging. Decreases on overload are immediate.",
+          "auto_mode": "Charging mode that is selected when a car is plugged in.",
+          "reset_on_unplug": "Switch the mode back to OFF when the car is unplugged.",
+          "limit_block_1": "Power limit in watts for tariff block 1.",
+          "limit_block_2": "Power limit in watts for tariff block 2.",
+          "limit_block_3": "Power limit in watts for tariff block 3.",
+          "limit_block_4": "Power limit in watts for tariff block 4.",
+          "limit_block_5": "Power limit in watts for tariff block 5."
         }
       },
       "phases": {
@@ -92,6 +152,12 @@
           "phase_sensor_l2": "L2 Current Sensor (A)",
           "phase_sensor_l3": "L3 Current Sensor (A)",
           "charger_phase": "Charger Phase (single-phase charger)"
+        },
+        "data_description": {
+          "phase_sensor_l1": "Current sensor (A) of phase L1 at the grid connection point.",
+          "phase_sensor_l2": "Current sensor (A) of phase L2 at the grid connection point.",
+          "phase_sensor_l3": "Current sensor (A) of phase L3 at the grid connection point.",
+          "charger_phase": "Phase the single-phase charger is connected to."
         }
       }
     },

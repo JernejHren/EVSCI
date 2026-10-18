@@ -11,6 +11,11 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from .const import DOMAIN
 
 
+# Koordinator je en sam in pošilja ukaze polnilniku zaporedno; vzporednih posodobitev ne omejujemo
+# z semaforjem, ker entitete same ne kličejo naprave.
+PARALLEL_UPDATES = 0
+
+
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: ConfigEntry,

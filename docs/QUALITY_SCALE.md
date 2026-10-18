@@ -12,8 +12,8 @@ Legenda: **OK** izpolnjeno, **DELNO**, **TODO**, **N/A** (izvzeto z razlogom, v 
 
 | Stopnja | OK | Delno | TODO | N/A |
 |---|---|---|---|---|
-| Bronze (20) | 5 | 3 | 6 | 6 |
-| Silver (10) | 3 | 1 | 4 | 2 |
+| Bronze (20) | 8 | 1 | 5 | 6 |
+| Silver (10) | 6 | 1 | 1 | 2 |
 | Gold (21) | 0 | 2 | 14 | 5 |
 | Platinum (3) | 0 | 0 | 1 | 2 |
 
@@ -24,10 +24,10 @@ Bronze je po moji grobi oceni oddaljen približno en delovni dan dela. Največji
 | Pravilo | Ocena | Opomba |
 |---|---|---|
 | action-setup | N/A | Integracija nima lastnih akcij (servisov). |
-| appropriate-polling | DELNO | Koordinator se izvaja vsakih 5 s, a bere samo stanja iz HA (brez omrežnih klicev) in je regulacijska zanka. Utemeljeno, a `iot_class` v manifestu je `local_polling`; pravilneje je `calculated`. |
+| appropriate-polling | OK | Koordinator se izvaja vsakih 5 s, a bere samo stanja iz HA (brez omrežnih klicev) in je regulacijska zanka. `iot_class` je zdaj `calculated`. |
 | brands | OK | Mapa `brand/` z icon, logo in dark_logo (+ @2x) za HA 2026.3+. |
 | common-modules | DELNO | Koordinator je v `coordinator.py`, entitete po platformah. Manjka skupni osnovni razred `entity.py`, ki bi nosil `DeviceInfo` in `has_entity_name`. |
-| config-flow | DELNO | Nastavitev poteka prek UI. Manjkajo `data_description` za polja (hassfest to zahteva); sedaj imajo polja samo oznake. |
+| config-flow | OK | Nastavitev prek UI; polja imajo `data_description` (en, sl). Potrditi s hassfestom. |
 | config-flow-test-coverage | TODO | Ni testov config flowa z resničnim HA. Obstajajo samo ad hoc preverjanja s stubi. |
 | dependency-transparency | N/A | Brez zunanjih knjižnic (`requirements: []`). |
 | docs-actions | N/A | Ni akcij. |
@@ -42,7 +42,7 @@ Bronze je po moji grobi oceni oddaljen približno en delovni dan dela. Največji
 | runtime-data | TODO | Uporablja se `hass.data[DOMAIN]`; pravilo zahteva `entry.runtime_data` s tipiziranim `ConfigEntry`. |
 | test-before-configure | TODO | Config flow ne preveri, da izbrane entitete obstajajo in so berljive. |
 | test-before-setup | TODO | `async_config_entry_first_refresh` je klican, a koordinator napake požre in nikoli ne sproži `ConfigEntryNotReady`/`UpdateFailed`. Pri manjkajoči entiteti se nastavitev izvede brez opozorila. |
-| unique-config-entry | TODO | Ni `async_set_unique_id`; isto konfiguracijo je mogoče dodati večkrat. |
+| unique-config-entry | OK | `unique_id` je entiteta za nastavitev toka polnilnika; drugi vnos za isti polnilnik se zavrne. Obstoječi vnosi brez `unique_id` niso zaščiteni. |
 
 ## Silver
 
@@ -53,9 +53,9 @@ Bronze je po moji grobi oceni oddaljen približno en delovni dan dela. Največji
 | docs-configuration-parameters | OK | README, razdelek Parameters. |
 | docs-installation-parameters | OK | README, razdelek Required Sensors. |
 | entity-unavailable | DELNO | Entitete ostanejo vedno razpoložljive, tudi kadar vhodnih senzorjev ni. Zavestna odločitev (koordinator preide v varno stanje), a jo je treba sprejeti kot izjemo ali izboljšati. |
-| integration-owner | TODO | `codeowners` v manifestu je prazen. |
-| log-when-unavailable | TODO | Opozorilo o starih podatkih omrežja se piše **ob vsakem ciklu (5 s)**, brez sporočila ob vrnitvi. Opozorila za tok in faze so enkratna in pravilna, a tudi ta nimajo sporočila ob vrnitvi. |
-| parallel-updates | TODO | Platforme `select`, `number`, `time` nimajo `PARALLEL_UPDATES`. |
+| integration-owner | OK | `codeowners`: `@JernejHren`. |
+| log-when-unavailable | OK | Opozorilo za senzor omrežja, tok polnilnika in tokove po fazah se zapiše enkrat ob izpadu, ob vrnitvi pa sporočilo (INFO). Preverjeno s simulacijo. |
+| parallel-updates | OK | `PARALLEL_UPDATES = 0` v vseh platformah. |
 | reauthentication-flow | N/A | Ni avtentikacije. |
 | test-coverage | TODO | Zahtevano >95 %. Pokrita je samo `logic.py` (112 testov). Koordinator, config flow in entitete niso pokriti s HA testi. |
 
@@ -95,14 +95,14 @@ Bronze je po moji grobi oceni oddaljen približno en delovni dan dela. Največji
 
 ## Ugotovitve zunaj lestvice
 
-- `manifest.json`: manjka `issue_tracker` (HACS ga priporoča), `codeowners` je prazen, `iot_class` bi moral biti `calculated`.
+- `manifest.json`: `codeowners`, `issue_tracker` in `iot_class` so urejeni (korak 1). `integration_type` ni nastavljen, ker nisem prepričan, katera vrednost ustreza; potrditi s hassfestom.
 - Repozitorij nima CI (`.github/workflows`): hassfest, HACS validacija in `pytest` bi morali teči ob vsakem pushu.
 - `async_add_entities(..., True)` v platformah sproži nepotreben `update_before_add`; pri entitetah koordinatorja ni potreben.
 - Vse je preverjeno samo z unit testi in stubi; nič še ni bilo preizkušeno na pravem HA.
 
 ## Predlagan vrstni red (iz plana ugotovitev)
 
-1. **Hitre zmage, majhno tveganje:** `codeowners`, `issue_tracker`, `iot_class`, `PARALLEL_UPDATES`, log-when-unavailable (enkratno opozorilo + sporočilo ob vrnitvi), unique config entry, `data_description` v obeh prevodih.
+1. **Hitre zmage, majhno tveganje (NAREJENO):** `codeowners`, `issue_tracker`, `iot_class`, `PARALLEL_UPDATES`, log-when-unavailable (enkratno opozorilo + sporočilo ob vrnitvi), unique config entry, `data_description` v obeh prevodih.
 2. **Bronze/Silver strukturno:** `runtime_data`, `entity.py` z `DeviceInfo` (naprava), `test-before-configure`/`test-before-setup` (ConfigEntryNotReady).
 3. **Gold uporabniška izkušnja:** entity translations + `icons.json`, kategorije in privzeto onemogočene entitete, diagnostika, reconfigure flow, repair issues.
 4. **Dokumentacija:** razdelki odstranitev, posodabljanje podatkov, omejitve, podprti polnilniki, odpravljanje težav, primeri.

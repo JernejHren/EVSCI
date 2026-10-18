@@ -118,6 +118,7 @@ class EVSCICoordinator(DataUpdateCoordinator):
 
         self._current_unreadable_logged = False
         self._phase_unavailable_logged = False
+        self._grid_unavailable_logged = False
 
         # Spomin za tarifo
         self._last_valid_tariff = 1
@@ -212,7 +213,9 @@ class EVSCICoordinator(DataUpdateCoordinator):
                 _LOGGER.warning("EVSCI: Tok po fazah: %s. Polnjenje v pavzi, dokler ni spet na voljo.", problem)
                 self._phase_unavailable_logged = True
             return None
-        self._phase_unavailable_logged = False
+        if self._phase_unavailable_logged:
+            _LOGGER.info("EVSCI: Tokovi po fazah so spet na voljo.")
+            self._phase_unavailable_logged = False
         return tuple(values)
 
     def _is_schedule_active(self):
@@ -238,6 +241,7 @@ class EVSCICoordinator(DataUpdateCoordinator):
         grid_state = self.hass.states.get(self.grid_entity)
         grid_power = 0.0
         data_is_stale = False
+        grid_problem = None
 
         if grid_state:
             try:
@@ -247,12 +251,25 @@ class EVSCICoordinator(DataUpdateCoordinator):
                 age = self._state_age_seconds(grid_state)
                 if age > STALE_DATA_THRESHOLD:
                     data_is_stale = True
-                    if self.selected_mode != MODE_OFF:
-                        _LOGGER.warning(f"EVSCI: Podatki omrežja stari {age:.0f}s! Pavza.")
+                    grid_problem = f"podatki so stari {age:.0f} s"
             except (ValueError, TypeError):
                 data_is_stale = True
+                grid_problem = f"vrednost ni berljiva ({grid_state.state})"
         else:
             data_is_stale = True
+            grid_problem = "entiteta ne obstaja"
+
+        # Opozorilo samo enkrat ob izpadu in sporočilo ob vrnitvi (brez spamanja dnevnika).
+        if grid_problem:
+            if not self._grid_unavailable_logged and self.selected_mode != MODE_OFF:
+                _LOGGER.warning(
+                    "EVSCI: Senzor omrežja (%s): %s. Pavza, dokler ni spet na voljo.",
+                    self.grid_entity, grid_problem,
+                )
+                self._grid_unavailable_logged = True
+        elif self._grid_unavailable_logged:
+            _LOGGER.info("EVSCI: Senzor omrežja (%s) je spet na voljo.", self.grid_entity)
+            self._grid_unavailable_logged = False
 
         raw_tariff = self._get_int_state(self.tariff_entity, -1)
         if 1 <= raw_tariff <= 5:
@@ -368,7 +385,9 @@ class EVSCICoordinator(DataUpdateCoordinator):
                 self._current_unreadable_logged = True
             self.calculated_amp = 0
             return build_result(0, 0)
-        self._current_unreadable_logged = False
+        if self._current_unreadable_logged:
+            _LOGGER.info("EVSCI: Tok polnilnika (%s) je spet berljiv.", self.charger_current_entity)
+            self._current_unreadable_logged = False
 
         # --- 4. ODLOČITEV (čista funkcija, glej logic.py) ---
         soc_limit_reached = bool(
