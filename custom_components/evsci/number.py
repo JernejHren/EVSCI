@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from homeassistant.components.number import NumberEntity
+from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
@@ -30,8 +31,8 @@ async def async_setup_entry(
 class EVSCITargetSocNumber(EVSCIEntity, NumberEntity, RestoreEntity):
     """Nastavitev ciljnega SoC (%), pri katerem se polnjenje ustavi."""
 
-    _attr_name = "Target SoC"
-    _attr_icon = "mdi:battery-heart-variant"
+    _attr_translation_key = "target_soc"
+    _attr_entity_category = EntityCategory.CONFIG
     _attr_native_min_value = 0
     _attr_native_max_value = 100
     _attr_native_step = 1
@@ -72,8 +73,8 @@ class EVSCITargetSocNumber(EVSCIEntity, NumberEntity, RestoreEntity):
 class EVSCILowTariffBlockNumber(EVSCIEntity, NumberEntity, RestoreEntity):
     """Najvišji dovoljeni blok za način Low Tariff: polni v tem bloku in v cenejših (višjih številkah)."""
 
-    _attr_name = "Low Tariff Block"
-    _attr_icon = "mdi:cash-clock"
+    _attr_translation_key = "low_tariff_block"
+    _attr_entity_category = EntityCategory.CONFIG
     _attr_native_min_value = 1
     _attr_native_max_value = 5
     _attr_native_step = 1

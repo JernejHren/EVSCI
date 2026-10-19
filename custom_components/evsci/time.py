@@ -1,6 +1,7 @@
 """Time entitete za nastavljanje urnika."""
 import datetime
 from homeassistant.components.time import TimeEntity
+from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -24,8 +25,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: EVSCIConfigEntry, async_
 
 class EVSCIScheduleStart(EVSCIEntity, TimeEntity, RestoreEntity):
     """Ura za začetek polnjenja."""
-    _attr_name = "Schedule Start"
-    _attr_icon = "mdi:clock-start"
+    _attr_translation_key = "schedule_start"
+    _attr_entity_category = EntityCategory.CONFIG
 
     def __init__(self, coordinator):
         super().__init__(coordinator)
@@ -56,8 +57,8 @@ class EVSCIScheduleStart(EVSCIEntity, TimeEntity, RestoreEntity):
 
 class EVSCIScheduleEnd(EVSCIEntity, TimeEntity, RestoreEntity):
     """Ura za konec polnjenja."""
-    _attr_name = "Schedule End"
-    _attr_icon = "mdi:clock-end"
+    _attr_translation_key = "schedule_end"
+    _attr_entity_category = EntityCategory.CONFIG
 
     def __init__(self, coordinator):
         super().__init__(coordinator)

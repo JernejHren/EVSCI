@@ -121,6 +121,7 @@ class EVSCIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     def __init__(self):
         self._user_data = {}
+        self._reconfigure_input = {}
 
     @staticmethod
     @callback
@@ -191,6 +192,75 @@ class EVSCIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             errors=errors,
             description_placeholders=placeholders,
         )
+
+    async def async_step_reconfigure(self, user_input=None):
+        """Ponovna nastavitev obstoječega vnosa (iste nastavitve kot ob namestitvi)."""
+        entry = self._get_reconfigure_entry()
+        errors = {}
+        placeholders = {}
+        if user_input is not None:
+            user_input = _clean_optional(user_input)
+            errors = _validate_controls(user_input)
+            if not errors:
+                errors, placeholders = _entity_errors(self.hass, user_input, ENTITY_FIELDS)
+            if not errors and self._charger_in_use_elsewhere(entry, user_input[CONF_CHARGER_CURRENT]):
+                errors = {"base": "charger_in_use"}
+            if not errors:
+                self._reconfigure_input = user_input
+                if user_input.get(CONF_FUSE_PROTECTION) == FUSE_PROTECTION_PER_PHASE:
+                    return await self.async_step_reconfigure_phases()
+                # Zaščita po skupni porabi: senzorjev po fazah ne potrebujemo.
+                data = {**user_input, **{key: None for key in [*PHASE_SENSOR_KEYS, CONF_CHARGER_PHASE]}}
+                return self._finish_reconfigure(entry, data)
+
+        current_config = {**entry.data, **entry.options}
+        if user_input is not None:
+            current_config = {**current_config, **user_input}
+        return self.async_show_form(
+            step_id="reconfigure",
+            data_schema=self.add_suggested_values_to_schema(self._get_schema(), current_config),
+            errors=errors,
+            description_placeholders=placeholders,
+        )
+
+    async def async_step_reconfigure_phases(self, user_input=None):
+        """Ponovna nastavitev: senzorji toka po fazah."""
+        entry = self._get_reconfigure_entry()
+        errors = {}
+        placeholders = {}
+        if user_input is not None:
+            errors, placeholders = _entity_errors(self.hass, user_input, PHASE_SENSOR_KEYS)
+            if not errors:
+                return self._finish_reconfigure(entry, {**self._reconfigure_input, **user_input})
+
+        current_config = {**entry.data, **entry.options}
+        schema = _get_phases_schema(self._reconfigure_input.get(CONF_PHASES, 3))
+        return self.async_show_form(
+            step_id="reconfigure_phases",
+            data_schema=self.add_suggested_values_to_schema(schema, current_config),
+            errors=errors,
+            description_placeholders=placeholders,
+        )
+
+    def _charger_in_use_elsewhere(self, entry, charger_current_entity):
+        """Ali isti polnilnik že uporablja drug vnos."""
+        return any(
+            other.entry_id != entry.entry_id and other.unique_id == charger_current_entity
+            for other in self._async_current_entries()
+        )
+
+    def _finish_reconfigure(self, entry, data):
+        """Shrani nove nastavitve. Možnosti (options) se počistijo, ker bi sicer prepisale nove podatke.
+
+        Ponovno nalaganje vnosa sproži poslušalec sprememb nastavitev.
+        """
+        self.hass.config_entries.async_update_entry(
+            entry,
+            unique_id=data[CONF_CHARGER_CURRENT],
+            data=data,
+            options={},
+        )
+        return self.async_abort(reason="reconfigure_successful")
 
     def _get_schema(self):
         """Vrne shemo."""

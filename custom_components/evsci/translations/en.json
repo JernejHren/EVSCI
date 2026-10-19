@@ -74,15 +74,91 @@
           "phase_sensor_l3": "Current sensor (A) of phase L3 at the grid connection point.",
           "charger_phase": "Phase the single-phase charger is connected to."
         }
+      },
+      "reconfigure": {
+        "title": "Reconfigure EVSCI",
+        "description": "Change the sensors and limits. Fields marked [Optional] can be left empty.",
+        "data": {
+          "grid_sensor": "Grid Power Sensor (W)",
+          "charger_start_button": "Charger Start Button [Optional]",
+          "charger_stop_button": "Charger Stop Button [Optional]",
+          "charger_switch": "Charger Start/Stop Switch [Optional]",
+          "charger_current": "Charger Current Control (A)",
+          "charger_power": "Charger Power Sensor (W)",
+          "charger_status": "Charger Status (for plug-in detection)",
+          "idle_statuses": "Statuses meaning \"cable not plugged in\" (comma separated)",
+          "ev_soc_sensor": "EV Battery Sensor (%) [Optional]",
+          "tariff_sensor": "Tariff Block Sensor (1-5) [Optional]",
+          "phases": "Number of Phases (1 or 3)",
+          "max_fuse": "Main Fuse Limit (A)",
+          "buffer": "Safety Buffer (W)",
+          "voltage": "Supply Voltage (V)",
+          "min_current": "Charger Minimum Current (A)",
+          "max_current": "Charger Maximum Current (A)",
+          "fuse_protection": "Main Fuse Protection",
+          "control_interval": "Current adjustment interval (s)",
+          "auto_mode": "Default Mode on Plug-in",
+          "reset_on_unplug": "Reset Mode to OFF on Unplug",
+          "limit_block_1": "Limit Block 1 (W)",
+          "limit_block_2": "Limit Block 2 (W)",
+          "limit_block_3": "Limit Block 3 (W)",
+          "limit_block_4": "Limit Block 4 (W)",
+          "limit_block_5": "Limit Block 5 (W)"
+        },
+        "data_description": {
+          "grid_sensor": "Power sensor (W) at your grid connection point. Positive = importing, negative = exporting.",
+          "charger_start_button": "Button that starts charging. Use together with the stop button, or use the switch instead.",
+          "charger_stop_button": "Button that stops charging. Use together with the start button, or use the switch instead.",
+          "charger_switch": "Single switch that starts (on) and stops (off) charging. Use this instead of the two buttons.",
+          "charger_current": "Number entity that sets the charging current in amps.",
+          "charger_power": "Sensor with the power the charger is drawing right now (W).",
+          "charger_status": "Sensor with the charger status, used to detect when a car is plugged in.",
+          "idle_statuses": "Status values that mean no car is connected, separated by commas. Not case sensitive. \"unavailable\" and \"unknown\" always count.",
+          "ev_soc_sensor": "Car battery level (%). Needed for the Target SoC limit.",
+          "tariff_sensor": "Sensor with the current tariff block (1-5). Needed for the Dynamic, Schedule and Low Tariff modes.",
+          "phases": "Number of phases of your charger installation.",
+          "max_fuse": "Main fuse rating per phase in amps.",
+          "buffer": "Safety reserve in watts kept below the limit.",
+          "voltage": "Phase voltage used to convert amps to watts.",
+          "min_current": "Lowest current the charger can be set to, in amps.",
+          "max_current": "Highest current the charger can be set to, in amps.",
+          "fuse_protection": "Total house power only, or total plus each phase (3-phase, needs a current sensor per phase).",
+          "control_interval": "Minimum time in seconds between current changes while charging. Decreases on overload are immediate.",
+          "auto_mode": "Charging mode that is selected when a car is plugged in.",
+          "reset_on_unplug": "Switch the mode back to OFF when the car is unplugged.",
+          "limit_block_1": "Power limit in watts for tariff block 1.",
+          "limit_block_2": "Power limit in watts for tariff block 2.",
+          "limit_block_3": "Power limit in watts for tariff block 3.",
+          "limit_block_4": "Power limit in watts for tariff block 4.",
+          "limit_block_5": "Power limit in watts for tariff block 5."
+        }
+      },
+      "reconfigure_phases": {
+        "title": "EVSCI: Phase Current Sensors",
+        "description": "Select the current sensor (A) of each phase at your grid connection point. Sensors that report a sign (import +, export -) work best. A sensor that reports only the magnitude is treated as import, which is the safe side.",
+        "data": {
+          "phase_sensor_l1": "L1 Current Sensor (A)",
+          "phase_sensor_l2": "L2 Current Sensor (A)",
+          "phase_sensor_l3": "L3 Current Sensor (A)",
+          "charger_phase": "Charger Phase (single-phase charger)"
+        },
+        "data_description": {
+          "phase_sensor_l1": "Current sensor (A) of phase L1 at the grid connection point.",
+          "phase_sensor_l2": "Current sensor (A) of phase L2 at the grid connection point.",
+          "phase_sensor_l3": "Current sensor (A) of phase L3 at the grid connection point.",
+          "charger_phase": "Phase the single-phase charger is connected to."
+        }
       }
     },
     "error": {
       "unknown": "Unknown error",
       "no_start_stop": "Select a start and a stop button, or a start/stop switch.",
-      "entity_not_found": "Entity not found: {entity}. Check the selection; if it is disabled or not loaded yet, enable it first."
+      "entity_not_found": "Entity not found: {entity}. Check the selection; if it is disabled or not loaded yet, enable it first.",
+      "charger_in_use": "Another entry already uses this charger current entity."
     },
     "abort": {
-      "already_configured": "Device is already configured"
+      "already_configured": "Device is already configured",
+      "reconfigure_successful": "Reconfiguration successful"
     }
   },
   "options": {
@@ -184,6 +260,76 @@
         "L2": "L2",
         "L3": "L3"
       }
+    }
+  },
+  "entity": {
+    "select": {
+      "charging_mode": {
+        "name": "Charging Mode"
+      }
+    },
+    "number": {
+      "target_soc": {
+        "name": "Target SoC"
+      },
+      "low_tariff_block": {
+        "name": "Low Tariff Block"
+      }
+    },
+    "time": {
+      "schedule_start": {
+        "name": "Schedule Start"
+      },
+      "schedule_end": {
+        "name": "Schedule End"
+      }
+    },
+    "sensor": {
+      "target_current": {
+        "name": "Target Current"
+      },
+      "monitored_grid_power": {
+        "name": "Monitored Grid Power"
+      },
+      "monitored_tariff_block": {
+        "name": "Monitored Tariff Block"
+      },
+      "session_total": {
+        "name": "Session Energy Total"
+      },
+      "session_solar": {
+        "name": "Session Energy Solar"
+      },
+      "session_grid": {
+        "name": "Session Energy Grid"
+      },
+      "lifetime_total": {
+        "name": "Lifetime Energy Total"
+      },
+      "lifetime_solar": {
+        "name": "Lifetime Energy Solar"
+      },
+      "lifetime_grid": {
+        "name": "Lifetime Energy Grid"
+      }
+    }
+  },
+  "issues": {
+    "grid_sensor_unavailable": {
+      "title": "Grid power sensor is unavailable",
+      "description": "EVSCI cannot use the grid power sensor {entity}: {problem}. Charging is paused until it works again. Check the sensor or select another one in the integration settings."
+    },
+    "charger_current_unavailable": {
+      "title": "Charger current control is unavailable",
+      "description": "EVSCI cannot read the charger current entity {entity}, so it sends no commands. Check the charger or select another entity in the integration settings."
+    },
+    "phase_sensor_unavailable": {
+      "title": "A phase current sensor is unavailable",
+      "description": "{problem}. Charging is paused while the per-phase protection cannot see all three phases. Fix the sensor or set Main Fuse Protection to total house power only."
+    },
+    "low_tariff_no_sensor": {
+      "title": "Low Tariff mode needs a tariff sensor",
+      "description": "The Low Tariff mode is selected but no tariff sensor is configured, so it never charges. Add a tariff sensor in the integration settings or select another mode."
     }
   }
 }

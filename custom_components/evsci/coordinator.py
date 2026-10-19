@@ -6,6 +6,7 @@ import asyncio
 from datetime import timedelta
 from homeassistant.util import dt as dt_util
 
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
@@ -15,6 +16,7 @@ from homeassistant.components.number import SERVICE_SET_VALUE
 from .const import (
     DOMAIN, 
     MODE_OFF,
+    MODE_LOW_TARIFF,
     MODE_NO_CHANGE,
     CONF_GRID_SENSOR,
     CONF_TARIFF_SENSOR,
@@ -68,6 +70,8 @@ _LOGGER = logging.getLogger(__name__)
 
 # VARNOSTNE KONSTANTE
 STALE_DATA_THRESHOLD = 60.0
+# Po tolikšnem času neprekinjenega izpada senzorja uporabniku pokažemo Popravek (Repair).
+OUTAGE_ISSUE_AFTER_SECONDS = 300.0
 
 class EVSCICoordinator(DataUpdateCoordinator):
     """Glavni razred za upravljanje EV polnjenja."""
@@ -120,11 +124,48 @@ class EVSCICoordinator(DataUpdateCoordinator):
         self._current_unreadable_logged = False
         self._phase_unavailable_logged = False
         self._grid_unavailable_logged = False
+        # Repair issues: katere smo ustvarili in od kdaj traja posamezen izpad.
+        self._active_issues: set[str] = set()
+        self._problem_since: dict[str, float] = {}
 
         # Spomin za tarifo
         self._last_valid_tariff = 1
         
         self._load_config()
+
+    def _set_issue(self, key: str, active: bool, placeholders: dict | None = None) -> None:
+        """Ustvari ali odstrani Repair issue (samo ob spremembi)."""
+        issue_id = f"{key}_{self.entry.entry_id}"
+        if active and key not in self._active_issues:
+            ir.async_create_issue(
+                self.hass,
+                DOMAIN,
+                issue_id,
+                is_fixable=False,
+                severity=ir.IssueSeverity.WARNING,
+                translation_key=key,
+                translation_placeholders=placeholders or {},
+            )
+            self._active_issues.add(key)
+        elif not active and key in self._active_issues:
+            ir.async_delete_issue(self.hass, DOMAIN, issue_id)
+            self._active_issues.discard(key)
+
+    def _track_outage(self, key: str, problem: str | None, entity: str | None) -> None:
+        """Ko izpad traja dlje kot OUTAGE_ISSUE_AFTER_SECONDS, pokaži Popravek; ob vrnitvi ga odstrani."""
+        if problem is None:
+            self._problem_since.pop(key, None)
+            self._set_issue(key, False)
+            return
+        since = self._problem_since.setdefault(key, time.time())
+        if time.time() - since >= OUTAGE_ISSUE_AFTER_SECONDS:
+            self._set_issue(key, True, {"entity": entity or "?", "problem": problem})
+
+    def clear_issues(self) -> None:
+        """Odstrani vse Repair issues te vnosa (ob odstranitvi integracije)."""
+        for key in list(self._active_issues):
+            self._set_issue(key, False)
+        self._problem_since.clear()
 
     def missing_entities(self) -> list[str]:
         """Obvezne entitete, ki jih (še) ni v Home Assistantu. Prazen seznam = vse je tam."""
@@ -218,6 +259,7 @@ class EVSCICoordinator(DataUpdateCoordinator):
                 break
             values.append(value)
 
+        self._track_outage("phase_sensor_unavailable", problem, None)
         if problem:
             if not self._phase_unavailable_logged:
                 _LOGGER.warning("EVSCI: Tok po fazah: %s. Polnjenje v pavzi, dokler ni spet na voljo.", problem)
@@ -280,6 +322,15 @@ class EVSCICoordinator(DataUpdateCoordinator):
         elif self._grid_unavailable_logged:
             _LOGGER.info("EVSCI: Senzor omrežja (%s) je spet na voljo.", self.grid_entity)
             self._grid_unavailable_logged = False
+        self._track_outage(
+            "grid_sensor_unavailable",
+            grid_problem if self.selected_mode != MODE_OFF else None,
+            self.grid_entity,
+        )
+        self._set_issue(
+            "low_tariff_no_sensor",
+            self.selected_mode == MODE_LOW_TARIFF and not self.tariff_entity,
+        )
 
         raw_tariff = self._get_int_state(self.tariff_entity, -1)
         if 1 <= raw_tariff <= 5:
@@ -296,6 +347,11 @@ class EVSCICoordinator(DataUpdateCoordinator):
         charger_current_state = self.hass.states.get(self.charger_current_entity)
         current_hw_amps = self._parse_float(charger_current_state.state) if charger_current_state else None
         current_unreadable = current_hw_amps is None
+        self._track_outage(
+            "charger_current_unavailable",
+            "vrednost ni berljiva" if current_unreadable else None,
+            self.charger_current_entity,
+        )
         if current_unreadable:
             current_hw_amps = 0.0
 

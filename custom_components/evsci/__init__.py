@@ -36,7 +36,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: EVSCIConfigEntry) -> boo
 
 async def async_unload_entry(hass: HomeAssistant, entry: EVSCIConfigEntry) -> bool:
     """Odstrani integracijo."""
-    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    if unload_ok:
+        entry.runtime_data.clear_issues()
+    return unload_ok
 
 
 async def update_listener(hass: HomeAssistant, entry: EVSCIConfigEntry) -> None:

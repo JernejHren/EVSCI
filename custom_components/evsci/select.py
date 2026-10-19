@@ -25,8 +25,7 @@ async def async_setup_entry(
 class EVSCIModeSelect(EVSCIEntity, SelectEntity, RestoreEntity):
     """Entiteta za izbiro načina polnjenja."""
 
-    _attr_name = "Charging Mode"
-    _attr_icon = "mdi:car-electric"
+    _attr_translation_key = "charging_mode"
     _attr_options = MODES
 
     def __init__(self, coordinator):

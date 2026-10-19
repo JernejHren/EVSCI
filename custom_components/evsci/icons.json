@@ -1,0 +1,51 @@
+{
+  "entity": {
+    "select": {
+      "charging_mode": {
+        "default": "mdi:car-electric"
+      }
+    },
+    "number": {
+      "target_soc": {
+        "default": "mdi:battery-heart-variant"
+      },
+      "low_tariff_block": {
+        "default": "mdi:cash-clock"
+      }
+    },
+    "time": {
+      "schedule_start": {
+        "default": "mdi:clock-start"
+      },
+      "schedule_end": {
+        "default": "mdi:clock-end"
+      }
+    },
+    "sensor": {
+      "target_current": {
+        "default": "mdi:current-ac"
+      },
+      "monitored_tariff_block": {
+        "default": "mdi:cash-clock"
+      },
+      "session_total": {
+        "default": "mdi:ev-station"
+      },
+      "session_solar": {
+        "default": "mdi:solar-power"
+      },
+      "session_grid": {
+        "default": "mdi:transmission-tower"
+      },
+      "lifetime_total": {
+        "default": "mdi:counter"
+      },
+      "lifetime_solar": {
+        "default": "mdi:solar-power"
+      },
+      "lifetime_grid": {
+        "default": "mdi:transmission-tower"
+      }
+    }
+  }
+}

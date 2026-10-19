@@ -14,7 +14,7 @@ Legenda: **OK** izpolnjeno, **DELNO**, **TODO**, **N/A** (izvzeto z razlogom, v 
 |---|---|---|---|---|
 | Bronze (20) | 12 | 0 | 2 | 6 |
 | Silver (10) | 6 | 1 | 1 | 2 |
-| Gold (21) | 1 | 2 | 13 | 5 |
+| Gold (21) | 9 | 1 | 6 | 5 |
 | Platinum (3) | 0 | 0 | 1 | 2 |
 
 Bronze je po moji grobi oceni oddaljen približno en delovni dan dela. Največji kos je testno pokritje (config flow, setup, entitete) z `pytest-homeassistant-custom-component`, ki ga je treba zagnati na stroju z delujočo namestitvijo.
@@ -64,7 +64,7 @@ Bronze je po moji grobi oceni oddaljen približno en delovni dan dela. Največji
 | Pravilo | Ocena | Opomba |
 |---|---|---|
 | devices | OK | Vse entitete pripadajo ena napravi "EV Smart Charging" (`DeviceInfo`, `entry_type=SERVICE`). `unique_id` se niso spremenili. |
-| diagnostics | TODO | Ni `diagnostics.py`. |
+| diagnostics | OK | `diagnostics.py`: nastavitve, notranje stanje, zadnji rezultat in stanja vhodnih entitet. Preverjeno s stubi. |
 | discovery | N/A | Ni odkrivanja (virtualna integracija). |
 | discovery-update-info | N/A | Isto. |
 | docs-data-update | TODO | README ne opisuje, kako in kako pogosto se podatki osvežujejo. |
@@ -75,14 +75,14 @@ Bronze je po moji grobi oceni oddaljen približno en delovni dan dela. Največji
 | docs-troubleshooting | TODO | Ni razdelka. |
 | docs-use-cases | TODO | Ni razdelka. |
 | dynamic-devices | N/A | Ena naprava. |
-| entity-category | TODO | Nobena entiteta nima `entity_category` (npr. nadzorni senzorji kot diagnostika). |
-| entity-device-class | DELNO | Moč in energija imata razred; `Target Current` bi lahko imel `CURRENT`. |
-| entity-disabled-by-default | TODO | Nobena entiteta ni privzeto onemogočena (npr. dnevni/življenjski delitveni senzorji). |
-| entity-translations | TODO | Imena entitet so trdo zapisana v angleščini (`_attr_name`); potrebna sta `translation_key` in razdelek `entity` v prevodih (en, sl). |
+| entity-category | OK | Nastavitvene entitete (number, time) so `CONFIG`, nadzorna senzorja `DIAGNOSTIC`. |
+| entity-device-class | OK | Moč `POWER`, energija `ENERGY`, ciljni tok `CURRENT`. Tarifni blok nima ustreznega razreda. |
+| entity-disabled-by-default | OK | `Monitored Grid Power` (kopija uporabnikovega senzorja) je privzeto onemogočen. |
+| entity-translations | OK | `translation_key` pri vseh entitetah, imena v `translations/en.json` in `sl.json`. |
 | exception-translations | N/A | Uporabniku ne sprožamo izjem; napake so v config flowu (že prevedene). |
-| icon-translations | TODO | Ikone so v `_attr_icon`; pravilo zahteva `icons.json`. |
-| reconfiguration-flow | TODO | Obstaja samo options flow; zahtevan je `async_step_reconfigure`. |
-| repair-issues | TODO | Npr. opozorilo "Low Tariff brez senzorja tarife" ali trajen izpad senzorja faze bi lahko bil Repair. |
+| icon-translations | OK | `icons.json`; v kodi ni več `_attr_icon` ali `icon` lastnosti. |
+| reconfiguration-flow | OK | `async_step_reconfigure` (+ korak s fazami). Shrani podatke, počisti options in zavrne polnilnik, ki ga že uporablja drug vnos. Preverjeno s stubi. |
+| repair-issues | OK | Popravki za izpad senzorja omrežja, toka polnilnika ali faze (po 5 min) in za Low Tariff brez senzorja tarife. Odstranijo se ob vrnitvi in ob odstranitvi vnosa. |
 | stale-devices | N/A | Ena naprava, ni dinamičnih. |
 
 ## Platinum
@@ -104,7 +104,7 @@ Bronze je po moji grobi oceni oddaljen približno en delovni dan dela. Največji
 
 1. **Hitre zmage, majhno tveganje (NAREJENO):** `codeowners`, `issue_tracker`, `iot_class`, `PARALLEL_UPDATES`, log-when-unavailable (enkratno opozorilo + sporočilo ob vrnitvi), unique config entry, `data_description` v obeh prevodih.
 2. **Bronze/Silver strukturno (NAREJENO):** `runtime_data`, `entity.py` z `DeviceInfo` (naprava), `test-before-configure`/`test-before-setup` (ConfigEntryNotReady).
-3. **Gold uporabniška izkušnja:** entity translations + `icons.json`, kategorije in privzeto onemogočene entitete, diagnostika, reconfigure flow, repair issues.
+3. **Gold uporabniška izkušnja (NAREJENO):** entity translations + `icons.json`, kategorije in privzeto onemogočene entitete, diagnostika, reconfigure flow, repair issues.
 4. **Dokumentacija:** razdelki odstranitev, posodabljanje podatkov, omejitve, podprti polnilniki, odpravljanje težav, primeri.
 5. **Testi in CI:** HA testi (config flow, setup, entitete) na stroju s pravim HA, hassfest + HACS action v GitHub Actions, nato `quality_scale.yaml` in `mypy --strict` za Platinum.
 
