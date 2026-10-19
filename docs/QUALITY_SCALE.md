@@ -12,12 +12,14 @@ Legenda: **OK** izpolnjeno, **DELNO**, **TODO**, **N/A** (izvzeto z razlogom, v 
 
 | Stopnja | OK | Delno | TODO | N/A |
 |---|---|---|---|---|
-| Bronze (20) | 12 | 0 | 2 | 6 |
+| Bronze (20) | 13 | 0 | 1 | 6 |
 | Silver (10) | 6 | 1 | 1 | 2 |
-| Gold (21) | 9 | 1 | 6 | 5 |
+| Gold (21) | 16 | 0 | 0 | 5 |
 | Platinum (3) | 0 | 0 | 1 | 2 |
 
-Bronze je po moji grobi oceni oddaljen približno en delovni dan dela. Največji kos je testno pokritje (config flow, setup, entitete) z `pytest-homeassistant-custom-component`, ki ga je treba zagnati na stroju z delujočo namestitvijo.
+**Kumulativnost:** vsaka stopnja zahteva vsa pravila nižjih stopenj. Dokler manjkata `config-flow-test-coverage` (Bronze) in `test-coverage` (Silver), formalno ne dosežemo niti Bronze, čeprav so vsa Gold pravila označena kot OK. Preostalo delo je zato predvsem testi s pravim HA (v okolju z delujočim HA), CI in odločitev o `entity-unavailable`. Ocene `OK` pri Gold pomenijo "narejeno v kodi in preverjeno s stubi", ne "potrjeno s hassfestom".
+
+Preostalo: Bronze 1 TODO, Silver 1 TODO in 1 delno, Platinum 1 TODO (`strict-typing`).
 
 ## Bronze
 
@@ -35,7 +37,7 @@ Bronze je po moji grobi oceni oddaljen približno en delovni dan dela. Največji
 | docs-triggers | N/A | Ni sprožilcev. |
 | docs-high-level-description | OK | README. |
 | docs-installation-instructions | OK | README: HACS in ročna namestitev. |
-| docs-removal-instructions | TODO | Ni opisa odstranitve. |
+| docs-removal-instructions | OK | README: Removing the Integration (vključno z opozorilom, da odstranitev ne ustavi polnjenja). |
 | entity-event-setup | N/A | Entitete se ne naročajo na dogodke; podatke dobijo prek koordinatorja. |
 | entity-unique-id | OK | Vse entitete imajo `unique_id`, osnovan na `entry_id`. |
 | has-entity-name | OK | `_attr_has_entity_name = True` povsod. |
@@ -67,13 +69,13 @@ Bronze je po moji grobi oceni oddaljen približno en delovni dan dela. Največji
 | diagnostics | OK | `diagnostics.py`: nastavitve, notranje stanje, zadnji rezultat in stanja vhodnih entitet. Preverjeno s stubi. |
 | discovery | N/A | Ni odkrivanja (virtualna integracija). |
 | discovery-update-info | N/A | Isto. |
-| docs-data-update | TODO | README ne opisuje, kako in kako pogosto se podatki osvežujejo. |
-| docs-examples | DELNO | Obstaja primer dashboard kartice; manjkajo primeri avtomatizacij. |
-| docs-known-limitations | TODO | Ni razdelka (npr. testirano samo z ABB Terra AC, en polnilnik, predpostavka predznaka toka). |
-| docs-supported-devices | TODO | Ni seznama podprtih polnilnikov. |
-| docs-supported-functions | TODO | Funkcije so v README, a ne kot seznam entitet. |
-| docs-troubleshooting | TODO | Ni razdelka. |
-| docs-use-cases | TODO | Ni razdelka. |
+| docs-data-update | OK | README: How It Works and How Data Is Updated (5 s cikel, interval spreminjanja, zastareli podatki, grace period). |
+| docs-examples | OK | README: tri avtomatizacije/skripte (YAML je preverjen z razčlenjevalnikom) in primer nadzorne plošče. |
+| docs-known-limitations | OK | README: Known Limitations. |
+| docs-supported-devices | OK | README: Supported Devices (ABB Terra AC testiran, zahteve za druge). |
+| docs-supported-functions | OK | README: Supported Functions (tabela entitet in funkcij). |
+| docs-troubleshooting | OK | README: Troubleshooting (preglednica težav, debug logiranje, diagnostika). |
+| docs-use-cases | OK | README: Use Cases. |
 | dynamic-devices | N/A | Ena naprava. |
 | entity-category | OK | Nastavitvene entitete (number, time) so `CONFIG`, nadzorna senzorja `DIAGNOSTIC`. |
 | entity-device-class | OK | Moč `POWER`, energija `ENERGY`, ciljni tok `CURRENT`. Tarifni blok nima ustreznega razreda. |
@@ -105,7 +107,7 @@ Bronze je po moji grobi oceni oddaljen približno en delovni dan dela. Največji
 1. **Hitre zmage, majhno tveganje (NAREJENO):** `codeowners`, `issue_tracker`, `iot_class`, `PARALLEL_UPDATES`, log-when-unavailable (enkratno opozorilo + sporočilo ob vrnitvi), unique config entry, `data_description` v obeh prevodih.
 2. **Bronze/Silver strukturno (NAREJENO):** `runtime_data`, `entity.py` z `DeviceInfo` (naprava), `test-before-configure`/`test-before-setup` (ConfigEntryNotReady).
 3. **Gold uporabniška izkušnja (NAREJENO):** entity translations + `icons.json`, kategorije in privzeto onemogočene entitete, diagnostika, reconfigure flow, repair issues.
-4. **Dokumentacija:** razdelki odstranitev, posodabljanje podatkov, omejitve, podprti polnilniki, odpravljanje težav, primeri.
+4. **Dokumentacija (NAREJENO):** razdelki odstranitev, posodabljanje podatkov, omejitve, podprti polnilniki, odpravljanje težav, primeri.
 5. **Testi in CI:** HA testi (config flow, setup, entitete) na stroju s pravim HA, hassfest + HACS action v GitHub Actions, nato `quality_scale.yaml` in `mypy --strict` za Platinum.
 
 Pomembno: točke 1 do 3 spreminjajo vedenje HA (naprava, imena entitet, enolični ključ konfiguracije). Brez pravega HA ne morem potrditi, da obstoječe namestitve (entity_id, zgodovina energijskih števcev) ostanejo nedotaknjene, zato bi te korake preizkusil na tvojem HA, preden gredo v izdajo.
