@@ -13,13 +13,13 @@ Legenda: **OK** izpolnjeno, **DELNO**, **TODO**, **N/A** (izvzeto z razlogom, v 
 | Stopnja | OK | Delno | TODO | N/A |
 |---|---|---|---|---|
 | Bronze (20) | 13 | 0 | 1 | 6 |
-| Silver (10) | 6 | 1 | 1 | 2 |
+| Silver (10) | 7 | 0 | 1 | 2 |
 | Gold (21) | 16 | 0 | 0 | 5 |
 | Platinum (3) | 0 | 0 | 1 | 2 |
 
-**Kumulativnost:** vsaka stopnja zahteva vsa pravila nižjih stopenj. Dokler manjkata `config-flow-test-coverage` (Bronze) in `test-coverage` (Silver), formalno ne dosežemo niti Bronze, čeprav so vsa Gold pravila označena kot OK. Preostalo delo je zato predvsem testi s pravim HA (v okolju z delujočim HA), CI in odločitev o `entity-unavailable`. Ocene `OK` pri Gold pomenijo "narejeno v kodi in preverjeno s stubi", ne "potrjeno s hassfestom".
+**Kumulativnost:** vsaka stopnja zahteva vsa pravila nižjih stopenj. Dokler manjkata `config-flow-test-coverage` (Bronze) in `test-coverage` (Silver), formalno ne dosežemo niti Bronze, čeprav so vsa Gold pravila označena kot OK. Preostalo delo je zato predvsem testi s pravim HA (v okolju z delujočim HA) in CI. Ocene `OK` pri Gold pomenijo "narejeno v kodi in preverjeno s stubi", ne "potrjeno s hassfestom".
 
-Preostalo: Bronze 1 TODO, Silver 1 TODO in 1 delno, Platinum 1 TODO (`strict-typing`).
+Preostalo: Bronze 1 TODO (`config-flow-test-coverage`), Silver 1 TODO (`test-coverage`), Platinum 1 TODO (`strict-typing`).
 
 ## Bronze
 
@@ -54,7 +54,7 @@ Preostalo: Bronze 1 TODO, Silver 1 TODO in 1 delno, Platinum 1 TODO (`strict-typ
 | config-entry-unloading | OK | `async_unload_entry` obstaja in sprošča platforme. |
 | docs-configuration-parameters | OK | README, razdelek Parameters. |
 | docs-installation-parameters | OK | README, razdelek Required Sensors. |
-| entity-unavailable | DELNO | Entitete ostanejo vedno razpoložljive, tudi kadar vhodnih senzorjev ni. Zavestna odločitev (koordinator preide v varno stanje), a jo je treba sprejeti kot izjemo ali izboljšati. |
+| entity-unavailable | OK | Entitete z živimi odčitki (`Target Current`, `Monitored Grid Power`, `Monitored Tariff Block`) postanejo nedosegljive, ko vhodni signal manjka. Nastavitvene entitete (način, Target SoC, urnik) in števci energije ostanejo dosegljivi: uporabnik mora med izpadom lahko spremeniti način, števci pa hranijo zadnjo vrednost. Koordinator zato ne sproža `UpdateFailed`, ker mora varnostni ukaz (pavza) še vedno izvesti. Preverjeno s stubi, mutacije ujete. |
 | integration-owner | OK | `codeowners`: `@JernejHren`. |
 | log-when-unavailable | OK | Opozorilo za senzor omrežja, tok polnilnika in tokove po fazah se zapiše enkrat ob izpadu, ob vrnitvi pa sporočilo (INFO). Preverjeno s simulacijo. |
 | parallel-updates | OK | `PARALLEL_UPDATES = 0` v vseh platformah. |

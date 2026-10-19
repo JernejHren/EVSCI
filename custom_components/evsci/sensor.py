@@ -48,6 +48,19 @@ class EVSCIBaseSensor(EVSCIEntity, SensorEntity):
         super().__init__(coordinator)
         self._last_update_id = None
 
+    # Ključ v podatkih koordinatorja, ki pove, ali je vhodni signal te entitete na voljo.
+    # None = entiteta je vedno razpoložljiva (števci hranijo zadnjo vrednost).
+    _availability_key: str | None = None
+
+    @property
+    def available(self) -> bool:
+        """Entiteta je nedosegljiva, ko manjka vhodni signal, ki ga prikazuje."""
+        if not super().available:
+            return False
+        if self._availability_key is None:
+            return True
+        return bool((self.coordinator.data or {}).get(self._availability_key, True))
+
     def _is_new_update(self, data) -> bool:
         """Ali gre za nov izračun koordinatorja.
 
@@ -62,6 +75,7 @@ class EVSCIBaseSensor(EVSCIEntity, SensorEntity):
 
 class EVSCITargetCurrent(EVSCIBaseSensor):
     _attr_translation_key = "target_current"
+    _availability_key = "inputs_ok"
     _attr_device_class = SensorDeviceClass.CURRENT
     _attr_native_unit_of_measurement = UnitOfElectricCurrent.AMPERE
     def __init__(self, coordinator):
@@ -73,6 +87,7 @@ class EVSCITargetCurrent(EVSCIBaseSensor):
 
 class EVSCIGridMonitor(EVSCIBaseSensor):
     _attr_translation_key = "monitored_grid_power"
+    _availability_key = "grid_ok"
     _attr_entity_category = EntityCategory.DIAGNOSTIC
     _attr_entity_registry_enabled_default = False
     _attr_native_unit_of_measurement = UnitOfPower.WATT
@@ -87,6 +102,7 @@ class EVSCIGridMonitor(EVSCIBaseSensor):
 
 class EVSCITariffMonitor(EVSCIBaseSensor):
     _attr_translation_key = "monitored_tariff_block"
+    _availability_key = "tariff_ok"
     _attr_entity_category = EntityCategory.DIAGNOSTIC
     def __init__(self, coordinator):
         super().__init__(coordinator)

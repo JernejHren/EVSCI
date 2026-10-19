@@ -415,8 +415,20 @@ class EVSCICoordinator(DataUpdateCoordinator):
                 self._cable_connected = is_connected_now
                 self._last_charger_status_val = current_status_val
 
+        # Razpoložljivost entitet: vhodni signal, ki ga entiteta prikazuje, mora obstajati.
+        grid_ok = grid_problem is None
+        tariff_ok = (not self.tariff_entity) or (1 <= raw_tariff <= 5)
+        phase_missing = False  # po branju tokov po fazah
+
         def build_result(target_current, safety_amps_limit):
+            # V načinu OFF ciljni tok (0) ne pomeni izpada; sicer ga vhodni signali določajo.
+            inputs_ok = self.selected_mode == MODE_OFF or not (
+                data_is_stale or current_unreadable or phase_missing
+            )
             return {
+                "grid_ok": grid_ok,
+                "tariff_ok": tariff_ok,
+                "inputs_ok": inputs_ok,
                 "update_id": self._update_id,
                 "grid_power": grid_power,
                 "charger_power": charger_real_power,
@@ -465,6 +477,7 @@ class EVSCICoordinator(DataUpdateCoordinator):
             _LOGGER.debug(f"EVSCI: Cilj dosežen ({current_soc}%).")
 
         phase_currents = self._read_phase_currents() if self.settings.per_phase else None
+        phase_missing = self.settings.per_phase and phase_currents is None
 
         decision = decide(
             self.settings,

@@ -13,6 +13,7 @@ All notable changes to EVSCI since 0.1.3.
 - Unit tests (`tests/`, run with `python -m pytest tests`) for the charging decisions: cold start, ramp-up steps, startup grace period, overload protection, stale data, Target SoC, PV-only pause and resume, and the solar/grid energy split.
 
 ### Changed
+- Entities now become unavailable when their input signal is missing: *Target Current* (except in mode OFF), *Monitored Grid Power* and *Monitored Tariff Block*. Settings entities and energy counters stay available. Charging behavior is unchanged (it already paused on missing signals).
 - Quality scale step 4: the README now explains how data is updated, supported devices, supported functions (entity table), use cases, automation examples, known limitations, troubleshooting and how to remove the integration.
 - Quality scale step 3 (Gold): entity names and icons are translated (`translations` and `icons.json`, English and Slovenian; English names are unchanged). Settings entities (Target SoC, Low Tariff Block, Schedule Start/End) are in the device's *Configuration* section and the monitor sensors are diagnostic entities. *Monitored Grid Power* is disabled by default on new installations. *Target Current* now has the current device class.
 - New: *Reconfigure* in the integration menu (same settings as at setup, entries keep their entity IDs), *Download diagnostics*, and Repairs that appear when the grid sensor, the charger current entity or a phase current sensor is unavailable for 5 minutes, or when the Low Tariff mode is selected without a tariff sensor.

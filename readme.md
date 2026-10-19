@@ -142,6 +142,8 @@ All entities belong to one device, *EV Smart Charging*. The integration has no s
 | Session Energy Total / Solar / Grid | `sensor` (kWh) | Energy of the current session, reset when a car is plugged in. |
 | Lifetime Energy Total / Solar / Grid | `sensor` (kWh) | Total energy, kept across restarts (suitable for the Energy dashboard). |
 
+**Availability:** when an input signal is missing (the Grid Power Sensor is unavailable or stale, the charger current cannot be read, or a phase current sensor is missing in the per-phase mode), the sensors that show it become *unavailable*: *Target Current* (except in mode OFF), *Monitored Grid Power* (grid problem) and *Monitored Tariff Block* (the configured tariff sensor gives no valid block). The mode, Target SoC, Low Tariff Block and schedule entities stay available so you can change them during an outage, and the energy counters keep their last value. Charging is paused (0 A) while the signal is missing.
+
 Other functions: **Reconfigure** (change the setup without removing it), **Download diagnostics** (device page, three dots menu), and **Repairs** that appear when a sensor is unavailable for 5 minutes or when the Low Tariff mode is selected without a tariff sensor.
 
 ---
