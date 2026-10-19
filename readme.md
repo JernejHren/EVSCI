@@ -375,12 +375,14 @@ Long-term statistics of the energy sensors stay in the Home Assistant database u
 
 ## 🧪 Development
 
-The charging decisions live in `custom_components/evsci/logic.py` as pure functions (no Home Assistant needed), so they can be unit tested:
+The charging decisions live in `custom_components/evsci/logic.py` as pure functions (no Home Assistant needed), so they can be unit tested. Config flow, setup, entities, repairs and diagnostics are tested against a real Home Assistant with `pytest-homeassistant-custom-component`:
 
 ```bash
 pip install -r requirements_test.txt
-python -m pytest tests
+python -m pytest tests --cov=custom_components.evsci
 ```
+
+The Home Assistant tests (`tests/test_ha_*.py`) need a Python version that your Home Assistant test package supports (currently 3.13). Without that package, only the logic tests run. GitHub Actions runs the tests, hassfest and the HACS validation on every push.
 
 ---
 

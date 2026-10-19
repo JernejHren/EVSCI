@@ -2,7 +2,7 @@
 
 Stanje: veja `devcl`, 18. 10. 2026. Pravila so vzeta iz `script/hassfest/quality_scale.py` v Home Assistant core (20 bronze, 10 silver, 21 gold, 3 platinum).
 
-**Kako je bilo preverjeno:** branje kode in dokumentacije. Pravega Home Assistanta v tem okolju ni bilo mogoče namestiti (gradnja odvisnosti `PyRIC` ne uspe), zato **hassfest ni bil zagnan** in HA testi niso bili izvedeni. Vse ocene je zato treba potrditi s hassfestom, še posebej zahteve za `data_description`, `iot_class` in strukturo manifesta, ki jih navajam po spominu na pravila in ne po zagnanem preverjanju.
+**Kako je bilo preverjeno:** branje kode in dokumentacije ter **testi s pravim Home Assistantom 2026.2.3** (paket `pytest-homeassistant-custom-component`, namestitev prek `uv`; 170 testov, pokritost 98 %). **hassfest še ni bil zagnan** (teče v GitHub Actions, delovni tok `validate.yml`), zato ocene za `data_description`, `iot_class` in strukturo manifesta, ki jih navajam po spominu na pravila, še čakajo na potrditev. Testi niso preizkus na pravi napravi in polnilniku.
 
 Za custom integracije lestvica ni obvezna. Vseeno je dobra merilna letev in za HACS pomaga `hassfest` ter urejen manifest.
 
@@ -12,14 +12,14 @@ Legenda: **OK** izpolnjeno, **DELNO**, **TODO**, **N/A** (izvzeto z razlogom, v 
 
 | Stopnja | OK | Delno | TODO | N/A |
 |---|---|---|---|---|
-| Bronze (20) | 13 | 0 | 1 | 6 |
-| Silver (10) | 7 | 0 | 1 | 2 |
+| Bronze (20) | 14 | 0 | 0 | 6 |
+| Silver (10) | 8 | 0 | 0 | 2 |
 | Gold (21) | 16 | 0 | 0 | 5 |
 | Platinum (3) | 0 | 0 | 1 | 2 |
 
-**Kumulativnost:** vsaka stopnja zahteva vsa pravila nižjih stopenj. Dokler manjkata `config-flow-test-coverage` (Bronze) in `test-coverage` (Silver), formalno ne dosežemo niti Bronze, čeprav so vsa Gold pravila označena kot OK. Preostalo delo je zato predvsem testi s pravim HA (v okolju z delujočim HA) in CI. Ocene `OK` pri Gold pomenijo "narejeno v kodi in preverjeno s stubi", ne "potrjeno s hassfestom".
+**Kumulativnost:** vsaka stopnja zahteva vsa pravila nižjih stopenj. Pravila za teste (`config-flow-test-coverage`, `test-coverage`) sta zdaj izpolnjena, zato Bronze, Silver in Gold po moji oceni stojijo. Formalno jih potrdi šele hassfest in `quality_scale.yaml` v repozitoriju (še ni narejen). Ocene `OK` pomenijo "narejeno v kodi in preverjeno s testi s pravim HA", ne "potrjeno s hassfestom".
 
-Preostalo: Bronze 1 TODO (`config-flow-test-coverage`), Silver 1 TODO (`test-coverage`), Platinum 1 TODO (`strict-typing`).
+Preostalo: Platinum 1 TODO (`strict-typing`).
 
 ## Bronze
 
@@ -30,7 +30,7 @@ Preostalo: Bronze 1 TODO (`config-flow-test-coverage`), Silver 1 TODO (`test-cov
 | brands | OK | Mapa `brand/` z icon, logo in dark_logo (+ @2x) za HA 2026.3+. |
 | common-modules | OK | Koordinator v `coordinator.py`, skupni osnovni razred entitet v `entity.py`, platforme v svojih datotekah. |
 | config-flow | OK | Nastavitev prek UI; polja imajo `data_description` (en, sl). Potrditi s hassfestom. |
-| config-flow-test-coverage | TODO | Ni testov config flowa z resničnim HA. Obstajajo samo ad hoc preverjanja s stubi. |
+| config-flow-test-coverage | OK | `tests/test_ha_config_flow.py` (22 testov): uporabniški tok (skupna zaščita, po fazah, enofazni polnilnik, stikalo namesto gumbov), vse napake, podvojitev, reconfigure in options flow. Pokritost `config_flow.py` je 100 %, testi tečejo s pravim HA. |
 | dependency-transparency | N/A | Brez zunanjih knjižnic (`requirements: []`). |
 | docs-actions | N/A | Ni akcij. |
 | docs-conditions | N/A | Ni pogojev. |
@@ -59,7 +59,7 @@ Preostalo: Bronze 1 TODO (`config-flow-test-coverage`), Silver 1 TODO (`test-cov
 | log-when-unavailable | OK | Opozorilo za senzor omrežja, tok polnilnika in tokove po fazah se zapiše enkrat ob izpadu, ob vrnitvi pa sporočilo (INFO). Preverjeno s simulacijo. |
 | parallel-updates | OK | `PARALLEL_UPDATES = 0` v vseh platformah. |
 | reauthentication-flow | N/A | Ni avtentikacije. |
-| test-coverage | TODO | Zahtevano >95 %. Pokrita je samo `logic.py` (112 testov). Koordinator, config flow in entitete niso pokriti s HA testi. |
+| test-coverage | OK | Skupna pokritost paketa 98 % (170 testov: 112 čiste logike + 58 s pravim HA; GitHub Actions vsiljuje najmanj 95 %). |
 
 ## Gold
 
@@ -98,9 +98,9 @@ Preostalo: Bronze 1 TODO (`config-flow-test-coverage`), Silver 1 TODO (`test-cov
 ## Ugotovitve zunaj lestvice
 
 - `manifest.json`: `codeowners`, `issue_tracker` in `iot_class` so urejeni (korak 1). `integration_type` ni nastavljen, ker nisem prepričan, katera vrednost ustreza; potrditi s hassfestom.
-- Repozitorij nima CI (`.github/workflows`): hassfest, HACS validacija in `pytest` bi morali teči ob vsakem pushu.
+- CI je dodan (`.github/workflows/tests.yml` in `validate.yml`: pytest s pokritostjo, hassfest, HACS). Prvi zagon na GitHubu še ni bil opravljen, zato rezultat hassfesta ni znan.
 - `async_add_entities(..., True)` je odstranjen (nepotreben `update_before_add`).
-- Vse je preverjeno samo z unit testi in stubi; nič še ni bilo preizkušeno na pravem HA.
+- Preverjeno s testi s pravim HA 2026.2.3, a nič še ni bilo preizkušeno na tvojem HA in polnilniku.
 
 ## Predlagan vrstni red (iz plana ugotovitev)
 
@@ -108,6 +108,6 @@ Preostalo: Bronze 1 TODO (`config-flow-test-coverage`), Silver 1 TODO (`test-cov
 2. **Bronze/Silver strukturno (NAREJENO):** `runtime_data`, `entity.py` z `DeviceInfo` (naprava), `test-before-configure`/`test-before-setup` (ConfigEntryNotReady).
 3. **Gold uporabniška izkušnja (NAREJENO):** entity translations + `icons.json`, kategorije in privzeto onemogočene entitete, diagnostika, reconfigure flow, repair issues.
 4. **Dokumentacija (NAREJENO):** razdelki odstranitev, posodabljanje podatkov, omejitve, podprti polnilniki, odpravljanje težav, primeri.
-5. **Testi in CI:** HA testi (config flow, setup, entitete) na stroju s pravim HA, hassfest + HACS action v GitHub Actions, nato `quality_scale.yaml` in `mypy --strict` za Platinum.
+5. **Testi in CI (NAREJENO):** HA testi (config flow, setup, entitete, koordinator, popravki, diagnostika) s pravim HA, pytest + hassfest + HACS v GitHub Actions. Naslednje: `quality_scale.yaml` in `mypy --strict` za Platinum.
 
 Pomembno: točke 1 do 3 spreminjajo vedenje HA (naprava, imena entitet, enolični ključ konfiguracije). Brez pravega HA ne morem potrditi, da obstoječe namestitve (entity_id, zgodovina energijskih števcev) ostanejo nedotaknjene, zato bi te korake preizkusil na tvojem HA, preden gredo v izdajo.
