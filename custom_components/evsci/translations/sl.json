@@ -3,20 +3,25 @@
     "step": {
       "user": {
         "title": "EVSCI: Prva namestitev",
-        "description": "Povežite senzorje. Polje za sončno elektrarno lahko pustite prazno.",
+        "description": "Povežite senzorje. Polja z oznako [Opcijsko] lahko pustite prazna.",
         "data": {
           "grid_sensor": "Senzor moči omrežja (W)",
-          "charger_start_button": "Gumb za začetek polnjenja",
-          "charger_stop_button": "Gumb za konec polnjenja",
+          "charger_start_button": "Gumb za zagon polnilnika [neobvezno]",
+          "charger_stop_button": "Gumb za ustavitev polnilnika [neobvezno]",
+          "charger_switch": "Stikalo za zagon/ustavitev polnilnika [neobvezno]",
           "charger_current": "Nastavitev toka (A)",
           "charger_power": "Senzor moči polnilnice (W)",
           "charger_status": "Status polnilnice (za zaznavo priklopa)",
-          "solar_sensor": "Senzor sončne elektrarne (W) [Opcijsko]",
+          "idle_statuses": "Statusi, ki pomenijo »kabel ni priklopljen« (ločeni z vejico)",
           "ev_soc_sensor": "Senzor baterije avtomobila (%) [Opcijsko]",
-          "tariff_sensor": "Senzor tarifnega bloka",
+          "tariff_sensor": "Senzor tarifnega bloka (1-5) [Opcijsko]",
           "phases": "Število faz (1 ali 3)",
           "max_fuse": "Glavna varovalka (A)",
           "buffer": "Varnostni buffer (W)",
+          "voltage": "Napetost omrežja (V)",
+          "min_current": "Najmanjši tok polnilnice (A)",
+          "max_current": "Največji tok polnilnice (A)",
+          "fuse_protection": "Zaščita glavne varovalke",
           "control_interval": "Interval prilagajanja toka (s)",
           "auto_mode": "Privzeti način ob priklopu kabla",
           "reset_on_unplug": "Izklopi (OFF) ob odklopu kabla",
@@ -25,14 +30,135 @@
           "limit_block_3": "Limit Blok 3 (W)",
           "limit_block_4": "Limit Blok 4 (W)",
           "limit_block_5": "Limit Blok 5 (W)"
+        },
+        "data_description": {
+          "grid_sensor": "Senzor moči (W) na priključni točki. Pozitivno = uvoz, negativno = izvoz.",
+          "charger_start_button": "Gumb za zagon polnjenja. Uporabi skupaj z gumbom za ustavitev ali pa uporabi stikalo.",
+          "charger_stop_button": "Gumb za ustavitev polnjenja. Uporabi skupaj z gumbom za zagon ali pa uporabi stikalo.",
+          "charger_switch": "Eno stikalo, ki zažene (vklop) in ustavi (izklop) polnjenje. Uporabi namesto obeh gumbov.",
+          "charger_current": "Number entiteta, ki nastavi tok polnjenja v amperih.",
+          "charger_power": "Senzor trenutne moči polnilnika (W).",
+          "charger_status": "Senzor stanja polnilnika, s katerim zaznamo priklop avtomobila.",
+          "idle_statuses": "Vrednosti stanja, ki pomenijo, da avto ni priklopljen, ločene z vejicami. Velike in male črke ne štejejo. \"unavailable\" in \"unknown\" vedno veljata.",
+          "ev_soc_sensor": "Napolnjenost baterije avtomobila (%). Potrebno za omejitev Target SoC.",
+          "tariff_sensor": "Senzor trenutnega tarifnega bloka (1-5). Potreben za načine Dynamic, Schedule in Low Tariff.",
+          "phases": "Število faz vaše polnilne instalacije.",
+          "max_fuse": "Nazivni tok glavne varovalke na fazo v amperih.",
+          "buffer": "Varnostna rezerva v vatih pod mejo.",
+          "voltage": "Fazna napetost za pretvorbo amperov v vate.",
+          "min_current": "Najnižji tok, ki ga polnilnik lahko nastavi, v amperih.",
+          "max_current": "Najvišji tok, ki ga polnilnik lahko nastavi, v amperih.",
+          "fuse_protection": "Samo skupna poraba hiše ali skupna poraba in vsaka faza (3f, zahteva senzor toka za vsako fazo).",
+          "control_interval": "Najmanjši čas v sekundah med spremembami toka med polnjenjem. Znižanje ob preobremenitvi je takojšnje.",
+          "auto_mode": "Način polnjenja, ki se izbere ob priklopu avtomobila.",
+          "reset_on_unplug": "Ob odklopu avtomobila preklopi način nazaj na OFF.",
+          "limit_block_1": "Omejitev moči v vatih za tarifni blok 1.",
+          "limit_block_2": "Omejitev moči v vatih za tarifni blok 2.",
+          "limit_block_3": "Omejitev moči v vatih za tarifni blok 3.",
+          "limit_block_4": "Omejitev moči v vatih za tarifni blok 4.",
+          "limit_block_5": "Omejitev moči v vatih za tarifni blok 5."
+        }
+      },
+      "phases": {
+        "title": "EVSCI: senzorji toka po fazah",
+        "description": "Izberite senzor toka (A) za vsako fazo na priključni točki. Najbolje delujejo senzorji s predznakom (uvoz +, izvoz -). Senzor, ki javlja samo velikost toka, se obravnava kot uvoz, kar je na varni strani.",
+        "data": {
+          "phase_sensor_l1": "Senzor toka L1 (A)",
+          "phase_sensor_l2": "Senzor toka L2 (A)",
+          "phase_sensor_l3": "Senzor toka L3 (A)",
+          "charger_phase": "Faza polnilnika (enofazni polnilnik)"
+        },
+        "data_description": {
+          "phase_sensor_l1": "Senzor toka (A) faze L1 na priključni točki.",
+          "phase_sensor_l2": "Senzor toka (A) faze L2 na priključni točki.",
+          "phase_sensor_l3": "Senzor toka (A) faze L3 na priključni točki.",
+          "charger_phase": "Faza, na katero je priključen enofazni polnilnik."
+        }
+      },
+      "reconfigure": {
+        "title": "Ponovna nastavitev EVSCI",
+        "description": "Spremeni senzorje in omejitve. Polja z oznako [neobvezno] lahko pustiš prazna.",
+        "data": {
+          "grid_sensor": "Senzor moči omrežja (W)",
+          "charger_start_button": "Gumb za zagon polnilnika [neobvezno]",
+          "charger_stop_button": "Gumb za ustavitev polnilnika [neobvezno]",
+          "charger_switch": "Stikalo za zagon/ustavitev polnilnika [neobvezno]",
+          "charger_current": "Nastavitev toka (A)",
+          "charger_power": "Senzor moči polnilnice (W)",
+          "charger_status": "Status polnilnice (za zaznavo priklopa)",
+          "idle_statuses": "Statusi, ki pomenijo »kabel ni priklopljen« (ločeni z vejico)",
+          "ev_soc_sensor": "Senzor baterije avtomobila (%) [Opcijsko]",
+          "tariff_sensor": "Senzor tarifnega bloka (1-5) [Opcijsko]",
+          "phases": "Število faz (1 ali 3)",
+          "max_fuse": "Glavna varovalka (A)",
+          "buffer": "Varnostni buffer (W)",
+          "voltage": "Napetost omrežja (V)",
+          "min_current": "Najmanjši tok polnilnice (A)",
+          "max_current": "Največji tok polnilnice (A)",
+          "fuse_protection": "Zaščita glavne varovalke",
+          "control_interval": "Interval prilagajanja toka (s)",
+          "auto_mode": "Privzeti način ob priklopu kabla",
+          "reset_on_unplug": "Izklopi (OFF) ob odklopu kabla",
+          "limit_block_1": "Limit Blok 1 (W)",
+          "limit_block_2": "Limit Blok 2 (W)",
+          "limit_block_3": "Limit Blok 3 (W)",
+          "limit_block_4": "Limit Blok 4 (W)",
+          "limit_block_5": "Limit Blok 5 (W)"
+        },
+        "data_description": {
+          "grid_sensor": "Senzor moči (W) na priključni točki. Pozitivno = uvoz, negativno = izvoz.",
+          "charger_start_button": "Gumb za zagon polnjenja. Uporabi skupaj z gumbom za ustavitev ali pa uporabi stikalo.",
+          "charger_stop_button": "Gumb za ustavitev polnjenja. Uporabi skupaj z gumbom za zagon ali pa uporabi stikalo.",
+          "charger_switch": "Eno stikalo, ki zažene (vklop) in ustavi (izklop) polnjenje. Uporabi namesto obeh gumbov.",
+          "charger_current": "Number entiteta, ki nastavi tok polnjenja v amperih.",
+          "charger_power": "Senzor trenutne moči polnilnika (W).",
+          "charger_status": "Senzor stanja polnilnika, s katerim zaznamo priklop avtomobila.",
+          "idle_statuses": "Vrednosti stanja, ki pomenijo, da avto ni priklopljen, ločene z vejicami. Velike in male črke ne štejejo. \"unavailable\" in \"unknown\" vedno veljata.",
+          "ev_soc_sensor": "Napolnjenost baterije avtomobila (%). Potrebno za omejitev Target SoC.",
+          "tariff_sensor": "Senzor trenutnega tarifnega bloka (1-5). Potreben za načine Dynamic, Schedule in Low Tariff.",
+          "phases": "Število faz vaše polnilne instalacije.",
+          "max_fuse": "Nazivni tok glavne varovalke na fazo v amperih.",
+          "buffer": "Varnostna rezerva v vatih pod mejo.",
+          "voltage": "Fazna napetost za pretvorbo amperov v vate.",
+          "min_current": "Najnižji tok, ki ga polnilnik lahko nastavi, v amperih.",
+          "max_current": "Najvišji tok, ki ga polnilnik lahko nastavi, v amperih.",
+          "fuse_protection": "Samo skupna poraba hiše ali skupna poraba in vsaka faza (3f, zahteva senzor toka za vsako fazo).",
+          "control_interval": "Najmanjši čas v sekundah med spremembami toka med polnjenjem. Znižanje ob preobremenitvi je takojšnje.",
+          "auto_mode": "Način polnjenja, ki se izbere ob priklopu avtomobila.",
+          "reset_on_unplug": "Ob odklopu avtomobila preklopi način nazaj na OFF.",
+          "limit_block_1": "Omejitev moči v vatih za tarifni blok 1.",
+          "limit_block_2": "Omejitev moči v vatih za tarifni blok 2.",
+          "limit_block_3": "Omejitev moči v vatih za tarifni blok 3.",
+          "limit_block_4": "Omejitev moči v vatih za tarifni blok 4.",
+          "limit_block_5": "Omejitev moči v vatih za tarifni blok 5."
+        }
+      },
+      "reconfigure_phases": {
+        "title": "EVSCI: Senzorji toka po fazah",
+        "description": "Izberite senzor toka (A) za vsako fazo na priključni točki. Najbolje delujejo senzorji s predznakom (uvoz +, izvoz -). Senzor, ki javlja samo velikost toka, se obravnava kot uvoz, kar je na varni strani.",
+        "data": {
+          "phase_sensor_l1": "Senzor toka L1 (A)",
+          "phase_sensor_l2": "Senzor toka L2 (A)",
+          "phase_sensor_l3": "Senzor toka L3 (A)",
+          "charger_phase": "Faza polnilnika (enofazni polnilnik)"
+        },
+        "data_description": {
+          "phase_sensor_l1": "Senzor toka (A) faze L1 na priključni točki.",
+          "phase_sensor_l2": "Senzor toka (A) faze L2 na priključni točki.",
+          "phase_sensor_l3": "Senzor toka (A) faze L3 na priključni točki.",
+          "charger_phase": "Faza, na katero je priključen enofazni polnilnik."
         }
       }
     },
     "error": {
-      "unknown": "Neznana napaka"
+      "unknown": "Neznana napaka",
+      "no_start_stop": "Izberi gumb za zagon in gumb za ustavitev ali stikalo za zagon/ustavitev.",
+      "entity_not_found": "Entiteta ni najdena: {entity}. Preveri izbiro; če je onemogočena ali še ni naložena, jo najprej omogoči.",
+      "charger_in_use": "Isti polnilnik (entiteta za tok) že uporablja drug vnos."
     },
     "abort": {
-      "already_configured": "Naprava je že konfigurirana"
+      "already_configured": "Naprava je že konfigurirana",
+      "reconfigure_successful": "Ponovna nastavitev je uspela"
     }
   },
   "options": {
@@ -42,17 +168,22 @@
         "description": "Tukaj lahko spremenite limite in senzorje.",
         "data": {
           "grid_sensor": "Senzor moči omrežja (W)",
-          "charger_start_button": "Gumb za začetek polnjenja",
-          "charger_stop_button": "Gumb za konec polnjenja",
+          "charger_start_button": "Gumb za zagon polnilnika [neobvezno]",
+          "charger_stop_button": "Gumb za ustavitev polnilnika [neobvezno]",
+          "charger_switch": "Stikalo za zagon/ustavitev polnilnika [neobvezno]",
           "charger_current": "Nastavitev toka (A)",
           "charger_power": "Senzor moči polnilnice (W)",
           "charger_status": "Status polnilnice (za zaznavo priklopa)",
-          "solar_sensor": "Senzor sončne elektrarne (W) [Opcijsko]",
+          "idle_statuses": "Statusi, ki pomenijo »kabel ni priklopljen« (ločeni z vejico)",
           "ev_soc_sensor": "Senzor baterije avtomobila (%) [Opcijsko]",
-          "tariff_sensor": "Senzor tarifnega bloka",
+          "tariff_sensor": "Senzor tarifnega bloka (1-5) [Opcijsko]",
           "phases": "Število faz (1 ali 3)",
           "max_fuse": "Glavna varovalka (A)",
           "buffer": "Varnostni buffer (W)",
+          "voltage": "Napetost omrežja (V)",
+          "min_current": "Najmanjši tok polnilnice (A)",
+          "max_current": "Največji tok polnilnice (A)",
+          "fuse_protection": "Zaščita glavne varovalke",
           "control_interval": "Interval prilagajanja toka (s)",
           "auto_mode": "Privzeti način ob priklopu kabla",
           "reset_on_unplug": "Izklopi (OFF) ob odklopu kabla",
@@ -61,14 +192,137 @@
           "limit_block_3": "Limit Blok 3 (W)",
           "limit_block_4": "Limit Blok 4 (W)",
           "limit_block_5": "Limit Blok 5 (W)"
+        },
+        "data_description": {
+          "grid_sensor": "Senzor moči (W) na priključni točki. Pozitivno = uvoz, negativno = izvoz.",
+          "charger_start_button": "Gumb za zagon polnjenja. Uporabi skupaj z gumbom za ustavitev ali pa uporabi stikalo.",
+          "charger_stop_button": "Gumb za ustavitev polnjenja. Uporabi skupaj z gumbom za zagon ali pa uporabi stikalo.",
+          "charger_switch": "Eno stikalo, ki zažene (vklop) in ustavi (izklop) polnjenje. Uporabi namesto obeh gumbov.",
+          "charger_current": "Number entiteta, ki nastavi tok polnjenja v amperih.",
+          "charger_power": "Senzor trenutne moči polnilnika (W).",
+          "charger_status": "Senzor stanja polnilnika, s katerim zaznamo priklop avtomobila.",
+          "idle_statuses": "Vrednosti stanja, ki pomenijo, da avto ni priklopljen, ločene z vejicami. Velike in male črke ne štejejo. \"unavailable\" in \"unknown\" vedno veljata.",
+          "ev_soc_sensor": "Napolnjenost baterije avtomobila (%). Potrebno za omejitev Target SoC.",
+          "tariff_sensor": "Senzor trenutnega tarifnega bloka (1-5). Potreben za načine Dynamic, Schedule in Low Tariff.",
+          "phases": "Število faz vaše polnilne instalacije.",
+          "max_fuse": "Nazivni tok glavne varovalke na fazo v amperih.",
+          "buffer": "Varnostna rezerva v vatih pod mejo.",
+          "voltage": "Fazna napetost za pretvorbo amperov v vate.",
+          "min_current": "Najnižji tok, ki ga polnilnik lahko nastavi, v amperih.",
+          "max_current": "Najvišji tok, ki ga polnilnik lahko nastavi, v amperih.",
+          "fuse_protection": "Samo skupna poraba hiše ali skupna poraba in vsaka faza (3f, zahteva senzor toka za vsako fazo).",
+          "control_interval": "Najmanjši čas v sekundah med spremembami toka med polnjenjem. Znižanje ob preobremenitvi je takojšnje.",
+          "auto_mode": "Način polnjenja, ki se izbere ob priklopu avtomobila.",
+          "reset_on_unplug": "Ob odklopu avtomobila preklopi način nazaj na OFF.",
+          "limit_block_1": "Omejitev moči v vatih za tarifni blok 1.",
+          "limit_block_2": "Omejitev moči v vatih za tarifni blok 2.",
+          "limit_block_3": "Omejitev moči v vatih za tarifni blok 3.",
+          "limit_block_4": "Omejitev moči v vatih za tarifni blok 4.",
+          "limit_block_5": "Omejitev moči v vatih za tarifni blok 5."
+        }
+      },
+      "phases": {
+        "title": "EVSCI: senzorji toka po fazah",
+        "description": "Izberite senzor toka (A) za vsako fazo na priključni točki. Najbolje delujejo senzorji s predznakom (uvoz +, izvoz -). Senzor, ki javlja samo velikost toka, se obravnava kot uvoz, kar je na varni strani.",
+        "data": {
+          "phase_sensor_l1": "Senzor toka L1 (A)",
+          "phase_sensor_l2": "Senzor toka L2 (A)",
+          "phase_sensor_l3": "Senzor toka L3 (A)",
+          "charger_phase": "Faza polnilnika (enofazni polnilnik)"
+        },
+        "data_description": {
+          "phase_sensor_l1": "Senzor toka (A) faze L1 na priključni točki.",
+          "phase_sensor_l2": "Senzor toka (A) faze L2 na priključni točki.",
+          "phase_sensor_l3": "Senzor toka (A) faze L3 na priključni točki.",
+          "charger_phase": "Faza, na katero je priključen enofazni polnilnik."
         }
       }
     },
     "error": {
-      "unknown": "Neznana napaka"
+      "unknown": "Neznana napaka",
+      "no_start_stop": "Izberi gumb za zagon in gumb za ustavitev ali stikalo za zagon/ustavitev.",
+      "entity_not_found": "Entiteta ni najdena: {entity}. Preveri izbiro; če je onemogočena ali še ni naložena, jo najprej omogoči."
     },
     "abort": {
       "already_configured": "Naprava je že konfigurirana"
+    }
+  },
+  "selector": {
+    "fuse_protection": {
+      "options": {
+        "total": "Samo po skupni porabi hiše",
+        "per_phase": "Po skupni porabi hiše in po posamezni fazi (3f, zahteva senzorje toka)"
+      }
+    }
+  },
+  "entity": {
+    "select": {
+      "charging_mode": {
+        "name": "Način polnjenja"
+      }
+    },
+    "number": {
+      "target_soc": {
+        "name": "Ciljni SoC"
+      },
+      "low_tariff_block": {
+        "name": "Blok nizke tarife"
+      }
+    },
+    "time": {
+      "schedule_start": {
+        "name": "Začetek urnika"
+      },
+      "schedule_end": {
+        "name": "Konec urnika"
+      }
+    },
+    "sensor": {
+      "target_current": {
+        "name": "Ciljni tok"
+      },
+      "monitored_grid_power": {
+        "name": "Spremljana moč omrežja"
+      },
+      "monitored_tariff_block": {
+        "name": "Spremljani tarifni blok"
+      },
+      "session_total": {
+        "name": "Energija seje skupaj"
+      },
+      "session_solar": {
+        "name": "Energija seje sonce"
+      },
+      "session_grid": {
+        "name": "Energija seje omrežje"
+      },
+      "lifetime_total": {
+        "name": "Skupna energija skupaj"
+      },
+      "lifetime_solar": {
+        "name": "Skupna energija sonce"
+      },
+      "lifetime_grid": {
+        "name": "Skupna energija omrežje"
+      }
+    }
+  },
+  "issues": {
+    "grid_sensor_unavailable": {
+      "title": "Senzor moči omrežja ni na voljo",
+      "description": "EVSCI ne more uporabiti senzorja moči omrežja {entity}: {problem}. Polnjenje je v pavzi, dokler spet ne deluje. Preveri senzor ali v nastavitvah integracije izberi drugega."
+    },
+    "charger_current_unavailable": {
+      "title": "Nastavitev toka polnilnika ni na voljo",
+      "description": "EVSCI ne more prebrati entitete toka polnilnika {entity}, zato ne pošilja ukazov. Preveri polnilnik ali v nastavitvah integracije izberi drugo entiteto."
+    },
+    "phase_sensor_unavailable": {
+      "title": "Senzor toka ene od faz ni na voljo",
+      "description": "{problem}. Polnjenje je v pavzi, ker zaščita po fazah ne vidi vseh treh faz. Popravi senzor ali nastavi zaščito varovalke samo na skupno porabo hiše."
+    },
+    "low_tariff_no_sensor": {
+      "title": "Način Low Tariff potrebuje senzor tarife",
+      "description": "Izbran je način Low Tariff, a senzor tarife ni nastavljen, zato nikoli ne polni. V nastavitvah integracije dodaj senzor tarife ali izberi drug način."
     }
   }
 }

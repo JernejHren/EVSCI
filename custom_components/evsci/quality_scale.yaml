@@ -1,0 +1,91 @@
+# Home Assistant Integration Quality Scale: stanje pravil za EVSCI.
+# Razlogi in opombe so v docs/QUALITY_SCALE.md.
+rules:
+  # Bronze
+  action-setup:
+    status: exempt
+    comment: 'Integracija nima lastnih akcij (servisov).'
+  appropriate-polling: done
+  brands: done
+  common-modules: done
+  config-flow: done
+  config-flow-test-coverage: done
+  dependency-transparency:
+    status: exempt
+    comment: 'Brez zunanjih knjižnic (`requirements: []`).'
+  docs-actions:
+    status: exempt
+    comment: 'Ni akcij.'
+  docs-conditions:
+    status: exempt
+    comment: 'Ni pogojev.'
+  docs-triggers:
+    status: exempt
+    comment: 'Ni sprožilcev.'
+  docs-high-level-description: done
+  docs-installation-instructions: done
+  docs-removal-instructions: done
+  entity-event-setup:
+    status: exempt
+    comment: 'Entitete se ne naročajo na dogodke; podatke dobijo prek koordinatorja.'
+  entity-unique-id: done
+  has-entity-name: done
+  runtime-data: done
+  test-before-configure: done
+  test-before-setup: done
+  unique-config-entry: done
+  # Silver
+  action-exceptions:
+    status: exempt
+    comment: 'Brez lastnih akcij. Klici servisov na polnilnik (`number.set_value`, `button.press`) v koordinatorju niso zaviti v obravnavo napak; to je izboljšava, ne zahteva pravila.'
+  config-entry-unloading: done
+  docs-configuration-parameters: done
+  docs-installation-parameters: done
+  entity-unavailable: done
+  integration-owner: done
+  log-when-unavailable: done
+  parallel-updates: done
+  reauthentication-flow:
+    status: exempt
+    comment: 'Ni avtentikacije.'
+  test-coverage: done
+  # Gold
+  devices: done
+  diagnostics: done
+  discovery:
+    status: exempt
+    comment: 'Ni odkrivanja (virtualna integracija).'
+  discovery-update-info:
+    status: exempt
+    comment: 'Isto.'
+  docs-data-update: done
+  docs-examples: done
+  docs-known-limitations: done
+  docs-supported-devices: done
+  docs-supported-functions: done
+  docs-troubleshooting: done
+  docs-use-cases: done
+  dynamic-devices:
+    status: exempt
+    comment: 'Ena naprava.'
+  entity-category: done
+  entity-device-class: done
+  entity-disabled-by-default: done
+  entity-translations: done
+  exception-translations:
+    status: exempt
+    comment: 'Uporabniku ne sprožamo izjem; napake so v config flowu (že prevedene).'
+  icon-translations: done
+  reconfiguration-flow: done
+  repair-issues: done
+  stale-devices:
+    status: exempt
+    comment: 'Ena naprava, ni dinamičnih.'
+  # Platinum
+  async-dependency:
+    status: exempt
+    comment: 'Ni knjižnic.'
+  inject-websession:
+    status: exempt
+    comment: 'Ni spletnih klicev.'
+  strict-typing: done
