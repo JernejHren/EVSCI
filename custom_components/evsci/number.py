@@ -1,13 +1,13 @@
 """Number entitete za EVSCI."""
 from __future__ import annotations
 
-from homeassistant.components.number import NumberEntity
+from homeassistant.components.number import NumberEntity, NumberMode
 from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
 
-from .coordinator import EVSCIConfigEntry
+from .coordinator import EVSCIConfigEntry, EVSCICoordinator
 from .entity import EVSCIEntity
 
 
@@ -38,7 +38,7 @@ class EVSCITargetSocNumber(EVSCIEntity, NumberEntity, RestoreEntity):
     _attr_native_step = 1
     _attr_native_unit_of_measurement = "%"
 
-    def __init__(self, coordinator) -> None:
+    def __init__(self, coordinator: EVSCICoordinator) -> None:
         super().__init__(coordinator)
         self._attr_unique_id = f"{coordinator.entry.entry_id}_target_soc"
 
@@ -78,9 +78,9 @@ class EVSCILowTariffBlockNumber(EVSCIEntity, NumberEntity, RestoreEntity):
     _attr_native_min_value = 1
     _attr_native_max_value = 5
     _attr_native_step = 1
-    _attr_mode = "box"
+    _attr_mode = NumberMode.BOX
 
-    def __init__(self, coordinator) -> None:
+    def __init__(self, coordinator: EVSCICoordinator) -> None:
         super().__init__(coordinator)
         self._attr_unique_id = f"{coordinator.entry.entry_id}_low_tariff_block"
 

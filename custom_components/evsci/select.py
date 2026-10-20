@@ -1,11 +1,13 @@
 """Izbirnik načina za EVSCI."""
+from __future__ import annotations
+
 from homeassistant.components.select import SelectEntity
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import MODES
-from .coordinator import EVSCIConfigEntry
+from .coordinator import EVSCIConfigEntry, EVSCICoordinator
 from .entity import EVSCIEntity
 
 # Koordinator je en sam in pošilja ukaze polnilniku zaporedno; vzporednih posodobitev ne omejujemo
@@ -28,7 +30,7 @@ class EVSCIModeSelect(EVSCIEntity, SelectEntity, RestoreEntity):
     _attr_translation_key = "charging_mode"
     _attr_options = MODES
 
-    def __init__(self, coordinator):
+    def __init__(self, coordinator: EVSCICoordinator) -> None:
         super().__init__(coordinator)
         self._attr_unique_id = f"{coordinator.entry.entry_id}_mode_select"
 

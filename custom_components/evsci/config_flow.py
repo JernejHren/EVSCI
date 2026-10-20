@@ -1,7 +1,12 @@
 """Config flow za EVSCI."""
+from __future__ import annotations
+
+from typing import Any
+
 import voluptuous as vol
 from homeassistant import config_entries
-from homeassistant.core import callback
+from homeassistant.config_entries import ConfigFlowResult
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import selector
 
 from .const import (
@@ -54,7 +59,7 @@ CONTROL_OPTIONAL_FIELDS = [
 ]
 
 
-def _clean_optional(user_input):
+def _clean_optional(user_input: dict[str, Any]) -> dict[str, Any]:
     """Prazna neobvezna polja zapiše kot None, da se v možnostih prepišejo stare vrednosti."""
     for key in CONTROL_OPTIONAL_FIELDS:
         if user_input.get(key) in [None, "", []]:
@@ -62,7 +67,7 @@ def _clean_optional(user_input):
     return user_input
 
 
-def _validate_controls(user_input):
+def _validate_controls(user_input: dict[str, Any]) -> dict[str, str]:
     """Polnilnik potrebuje stikalo ali par gumbov za start in stop."""
     has_buttons = bool(user_input.get(CONF_CHARGER_START_BUTTON)) and bool(
         user_input.get(CONF_CHARGER_STOP_BUTTON)
@@ -85,7 +90,9 @@ ENTITY_FIELDS = [
 ]
 
 
-def _entity_errors(hass, user_input, keys):
+def _entity_errors(
+    hass: HomeAssistant, user_input: dict[str, Any], keys: list[str]
+) -> tuple[dict[str, str], dict[str, str]]:
     """Preveri, da izbrane entitete obstajajo. Vrne (napake, nadomestila za opis)."""
     missing = [
         user_input[key]
@@ -97,9 +104,9 @@ def _entity_errors(hass, user_input, keys):
     return {}, {}
 
 
-def _get_phases_schema(charger_phases):
+def _get_phases_schema(charger_phases: int) -> vol.Schema:
     """Shema za senzorje toka po fazah. Faza polnilnika samo pri enofaznem polnilniku."""
-    fields = {}
+    fields: dict[Any, Any] = {}
     for key in PHASE_SENSOR_KEYS:
         fields[vol.Required(key)] = selector.EntitySelector(
             selector.EntitySelectorConfig(domain="sensor", device_class="current")
@@ -115,23 +122,71 @@ def _get_phases_schema(charger_phases):
     return vol.Schema(fields)
 
 
+def _get_schema() -> vol.Schema:
+    """Vrne shemo."""
+    return vol.Schema({
+        # --- SENZORJI ---
+        vol.Required(CONF_GRID_SENSOR): selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor", device_class="power")),
+        vol.Optional(CONF_CHARGER_START_BUTTON): selector.EntitySelector(selector.EntitySelectorConfig(domain="button")),
+        vol.Optional(CONF_CHARGER_STOP_BUTTON): selector.EntitySelector(selector.EntitySelectorConfig(domain="button")),
+        vol.Optional(CONF_CHARGER_SWITCH): selector.EntitySelector(selector.EntitySelectorConfig(domain="switch")),
+        vol.Required(CONF_CHARGER_CURRENT): selector.EntitySelector(selector.EntitySelectorConfig(domain="number")),
+        vol.Required(CONF_CHARGER_POWER): selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor", device_class="power")),
+        vol.Required(CONF_CHARGER_STATUS): selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor")),
+        vol.Optional(CONF_IDLE_STATUSES, default=DEFAULT_IDLE_STATUSES): str,
+
+        vol.Optional(CONF_TARIFF_SENSOR): selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor")),
+        vol.Optional(CONF_EV_SOC_SENSOR): selector.EntitySelector(selector.EntitySelectorConfig()),
+
+        # --- PARAMETRI ---
+        vol.Required(CONF_PHASES): vol.In([1, 3]),
+        vol.Required(CONF_MAX_FUSE): int,
+        vol.Required(CONF_BUFFER): int,
+        vol.Optional(CONF_VOLTAGE, default=DEFAULT_VOLTAGE): vol.All(int, vol.Range(min=100, max=480)),
+        vol.Optional(CONF_MIN_CURRENT, default=DEFAULT_MIN_CURRENT): vol.All(int, vol.Range(min=1, max=32)),
+        vol.Optional(CONF_MAX_CURRENT, default=DEFAULT_MAX_CURRENT): vol.All(int, vol.Range(min=6, max=80)),
+        vol.Required(CONF_FUSE_PROTECTION, default=FUSE_PROTECTION_TOTAL): selector.SelectSelector(
+            selector.SelectSelectorConfig(
+                options=FUSE_PROTECTION_MODES,
+                mode=selector.SelectSelectorMode.DROPDOWN,
+                translation_key=CONF_FUSE_PROTECTION,
+            )
+        ),
+
+        # NOVO: Interval
+        vol.Required(CONF_CONTROL_INTERVAL): vol.All(int, vol.Range(min=5, max=300)),
+
+        vol.Required(CONF_AUTO_MODE): selector.SelectSelector(
+            selector.SelectSelectorConfig(options=AUTO_MODES, mode=selector.SelectSelectorMode.DROPDOWN)
+        ),
+        vol.Required(CONF_RESET_ON_UNPLUG): bool,
+
+        # --- LIMITI ---
+        vol.Required(CONF_LIMIT_BLOCK_1): int,
+        vol.Required(CONF_LIMIT_BLOCK_2): int,
+        vol.Required(CONF_LIMIT_BLOCK_3): int,
+        vol.Required(CONF_LIMIT_BLOCK_4): int,
+        vol.Required(CONF_LIMIT_BLOCK_5): int,
+    })
+
+
 class EVSCIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Obravnava config flow za EVSCI."""
     VERSION = 1
 
-    def __init__(self):
-        self._user_data = {}
-        self._reconfigure_input = {}
+    def __init__(self) -> None:
+        self._user_data: dict[str, Any] = {}
+        self._reconfigure_input: dict[str, Any] = {}
 
     @staticmethod
     @callback
-    def async_get_options_flow(config_entry):
+    def async_get_options_flow(config_entry: config_entries.ConfigEntry[Any]) -> EVSCIOptionsFlowHandler:
         return EVSCIOptionsFlowHandler(config_entry)
 
-    async def async_step_user(self, user_input=None):
+    async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Prva namestitev."""
-        errors = {}
-        placeholders = {}
+        errors: dict[str, str] = {}
+        placeholders: dict[str, str] = {}
         if user_input is not None:
             user_input = _clean_optional(user_input)
             errors = _validate_controls(user_input)
@@ -167,7 +222,7 @@ class EVSCIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             defaults = {**defaults, **user_input}
 
-        schema = self._get_schema()
+        schema = _get_schema()
         return self.async_show_form(
             step_id="user",
             data_schema=self.add_suggested_values_to_schema(schema, defaults),
@@ -175,10 +230,10 @@ class EVSCIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             description_placeholders=placeholders,
         )
 
-    async def async_step_phases(self, user_input=None):
+    async def async_step_phases(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Dodaten korak: senzorji toka po fazah (samo pri zaščiti po fazah)."""
-        errors = {}
-        placeholders = {}
+        errors: dict[str, str] = {}
+        placeholders: dict[str, str] = {}
         if user_input is not None:
             errors, placeholders = _entity_errors(self.hass, user_input, PHASE_SENSOR_KEYS)
             if not errors:
@@ -193,11 +248,11 @@ class EVSCIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             description_placeholders=placeholders,
         )
 
-    async def async_step_reconfigure(self, user_input=None):
+    async def async_step_reconfigure(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Ponovna nastavitev obstoječega vnosa (iste nastavitve kot ob namestitvi)."""
         entry = self._get_reconfigure_entry()
-        errors = {}
-        placeholders = {}
+        errors: dict[str, str] = {}
+        placeholders: dict[str, str] = {}
         if user_input is not None:
             user_input = _clean_optional(user_input)
             errors = _validate_controls(user_input)
@@ -218,16 +273,16 @@ class EVSCIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             current_config = {**current_config, **user_input}
         return self.async_show_form(
             step_id="reconfigure",
-            data_schema=self.add_suggested_values_to_schema(self._get_schema(), current_config),
+            data_schema=self.add_suggested_values_to_schema(_get_schema(), current_config),
             errors=errors,
             description_placeholders=placeholders,
         )
 
-    async def async_step_reconfigure_phases(self, user_input=None):
+    async def async_step_reconfigure_phases(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Ponovna nastavitev: senzorji toka po fazah."""
         entry = self._get_reconfigure_entry()
-        errors = {}
-        placeholders = {}
+        errors: dict[str, str] = {}
+        placeholders: dict[str, str] = {}
         if user_input is not None:
             errors, placeholders = _entity_errors(self.hass, user_input, PHASE_SENSOR_KEYS)
             if not errors:
@@ -242,14 +297,14 @@ class EVSCIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             description_placeholders=placeholders,
         )
 
-    def _charger_in_use_elsewhere(self, entry, charger_current_entity):
+    def _charger_in_use_elsewhere(self, entry: config_entries.ConfigEntry[Any], charger_current_entity: str) -> bool:
         """Ali isti polnilnik že uporablja drug vnos."""
         return any(
             other.entry_id != entry.entry_id and other.unique_id == charger_current_entity
             for other in self._async_current_entries()
         )
 
-    def _finish_reconfigure(self, entry, data):
+    def _finish_reconfigure(self, entry: config_entries.ConfigEntry[Any], data: dict[str, Any]) -> ConfigFlowResult:
         """Shrani nove nastavitve. Možnosti (options) se počistijo, ker bi sicer prepisale nove podatke.
 
         Ponovno nalaganje vnosa sproži poslušalec sprememb nastavitev.
@@ -262,63 +317,15 @@ class EVSCIConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
         return self.async_abort(reason="reconfigure_successful")
 
-    def _get_schema(self):
-        """Vrne shemo."""
-        return vol.Schema({
-            # --- SENZORJI ---
-            vol.Required(CONF_GRID_SENSOR): selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor", device_class="power")),
-            vol.Optional(CONF_CHARGER_START_BUTTON): selector.EntitySelector(selector.EntitySelectorConfig(domain="button")),
-            vol.Optional(CONF_CHARGER_STOP_BUTTON): selector.EntitySelector(selector.EntitySelectorConfig(domain="button")),
-            vol.Optional(CONF_CHARGER_SWITCH): selector.EntitySelector(selector.EntitySelectorConfig(domain="switch")),
-            vol.Required(CONF_CHARGER_CURRENT): selector.EntitySelector(selector.EntitySelectorConfig(domain="number")),
-            vol.Required(CONF_CHARGER_POWER): selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor", device_class="power")),
-            vol.Required(CONF_CHARGER_STATUS): selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor")),
-            vol.Optional(CONF_IDLE_STATUSES, default=DEFAULT_IDLE_STATUSES): str,
-
-            vol.Optional(CONF_TARIFF_SENSOR): selector.EntitySelector(selector.EntitySelectorConfig(domain="sensor")),
-            vol.Optional(CONF_EV_SOC_SENSOR): selector.EntitySelector(selector.EntitySelectorConfig()),
-            
-            # --- PARAMETRI ---
-            vol.Required(CONF_PHASES): vol.In([1, 3]),
-            vol.Required(CONF_MAX_FUSE): int,
-            vol.Required(CONF_BUFFER): int,
-            vol.Optional(CONF_VOLTAGE, default=DEFAULT_VOLTAGE): vol.All(int, vol.Range(min=100, max=480)),
-            vol.Optional(CONF_MIN_CURRENT, default=DEFAULT_MIN_CURRENT): vol.All(int, vol.Range(min=1, max=32)),
-            vol.Optional(CONF_MAX_CURRENT, default=DEFAULT_MAX_CURRENT): vol.All(int, vol.Range(min=6, max=80)),
-            vol.Required(CONF_FUSE_PROTECTION, default=FUSE_PROTECTION_TOTAL): selector.SelectSelector(
-                selector.SelectSelectorConfig(
-                    options=FUSE_PROTECTION_MODES,
-                    mode=selector.SelectSelectorMode.DROPDOWN,
-                    translation_key=CONF_FUSE_PROTECTION,
-                )
-            ),
-            
-            # NOVO: Interval
-            vol.Required(CONF_CONTROL_INTERVAL): vol.All(int, vol.Range(min=5, max=300)),
-            
-            vol.Required(CONF_AUTO_MODE): selector.SelectSelector(
-                selector.SelectSelectorConfig(options=AUTO_MODES, mode=selector.SelectSelectorMode.DROPDOWN)
-            ),
-            vol.Required(CONF_RESET_ON_UNPLUG): bool,
-
-            # --- LIMITI ---
-            vol.Required(CONF_LIMIT_BLOCK_1): int,
-            vol.Required(CONF_LIMIT_BLOCK_2): int,
-            vol.Required(CONF_LIMIT_BLOCK_3): int,
-            vol.Required(CONF_LIMIT_BLOCK_4): int,
-            vol.Required(CONF_LIMIT_BLOCK_5): int,
-        })
-
-
 class EVSCIOptionsFlowHandler(config_entries.OptionsFlow):
     """Obravnava spremembe nastavitev."""
 
-    def __init__(self, config_entry):
-        self._user_input = {}
+    def __init__(self, config_entry: config_entries.ConfigEntry[Any]) -> None:
+        self._user_input: dict[str, Any] = {}
 
-    async def async_step_init(self, user_input=None):
-        errors = {}
-        placeholders = {}
+    async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        errors: dict[str, str] = {}
+        placeholders: dict[str, str] = {}
         if user_input is not None:
             user_input = _clean_optional(user_input)
             errors = _validate_controls(user_input)
@@ -337,8 +344,7 @@ class EVSCIOptionsFlowHandler(config_entries.OptionsFlow):
         current_config = {**self.config_entry.data, **self.config_entry.options}
         if user_input is not None:
             current_config = {**current_config, **user_input}
-        flow = EVSCIConfigFlow()
-        schema = flow._get_schema()
+        schema = _get_schema()
 
         return self.async_show_form(
             step_id="init",
@@ -347,10 +353,10 @@ class EVSCIOptionsFlowHandler(config_entries.OptionsFlow):
             description_placeholders=placeholders,
         )
 
-    async def async_step_phases(self, user_input=None):
+    async def async_step_phases(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Dodaten korak: senzorji toka po fazah."""
-        errors = {}
-        placeholders = {}
+        errors: dict[str, str] = {}
+        placeholders: dict[str, str] = {}
         if user_input is not None:
             errors, placeholders = _entity_errors(self.hass, user_input, PHASE_SENSOR_KEYS)
             if not errors:

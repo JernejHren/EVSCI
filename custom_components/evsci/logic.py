@@ -8,6 +8,7 @@ pokliče ``decide()`` in izvede ukaze.
 from __future__ import annotations
 
 import math
+from collections.abc import Iterable
 from dataclasses import dataclass
 
 from .const import (
@@ -102,7 +103,7 @@ class Decision:
     target_amps: float         # tok, ki naj ga nastavimo (0 = ni polnjenja)
     session_active: bool       # ali naj seja teče
     pv_only_paused: bool       # novo stanje PV-only pavze
-    safety_amps_limit: int     # največji tok, ki ga varovalka/blok še dovoli
+    safety_amps_limit: float   # največji tok, ki ga varovalka/blok še dovoli
     house_load: float          # hišna poraba brez polnilnika (W)
     charger_power_eff: float   # moč polnilnika, uporabljena v izračunu (W)
     in_grace: bool
@@ -142,10 +143,13 @@ def phase_headroom_amps(settings: Settings, inp: Inputs, charger_power_eff: floa
     javlja samo velikost toka, pa je vedno ``>= 0`` in se obravnava kot uvoz
     (previdno, nikoli ne preceni prostora).
     """
+    currents = inp.phase_currents
+    if currents is None:
+        raise ValueError("phase_headroom_amps requires phase_currents")
     loaded = settings.loaded_phases
     charger_amps = max(0.0, charger_power_eff) / (settings.voltage * len(loaded))
     buffer_amps = settings.buffer_watts / settings.power_per_amp
-    worst_house = max(inp.phase_currents[i] - charger_amps for i in loaded)
+    worst_house = max(currents[i] - charger_amps for i in loaded)
     maintain = math.floor(settings.max_fuse_amps - worst_house)
     increase = math.floor(settings.max_fuse_amps - worst_house - buffer_amps)
     return maintain, increase
@@ -153,7 +157,10 @@ def phase_headroom_amps(settings: Settings, inp: Inputs, charger_power_eff: floa
 
 def phase_overload(settings: Settings, inp: Inputs) -> bool:
     """Ali katera od faz, ki jih obremenjuje polnilnik, presega varovalko."""
-    return any(inp.phase_currents[i] > settings.max_fuse_amps for i in settings.loaded_phases)
+    currents = inp.phase_currents
+    if currents is None:
+        return False
+    return any(currents[i] > settings.max_fuse_amps for i in settings.loaded_phases)
 
 
 def mode_target_amps(settings: Settings, inp: Inputs, charger_power_eff: float) -> tuple[float, float]:
@@ -224,6 +231,8 @@ def decide(settings: Settings, inp: Inputs) -> Decision:
 
     # --- Ciljni tok načina ---
     should_session_be_active = not inp.soc_limit_reached
+    target_mode_amps: float
+    excess_w: float
     if inp.soc_limit_reached:
         target_mode_amps, excess_w = 0, 0.0
     else:
@@ -253,6 +262,7 @@ def decide(settings: Settings, inp: Inputs) -> Decision:
 
     data_unsafe = inp.data_is_stale or (settings.per_phase and inp.phase_currents is None)
 
+    candidate_amps: float
     if data_unsafe:
         candidate_amps = 0
     else:
@@ -383,14 +393,14 @@ def split_energy_power(charger_power: float, grid_power: float) -> tuple[float, 
 ALWAYS_IDLE_STATES = ("unavailable", "unknown")
 
 
-def parse_idle_statuses(text) -> tuple[str, ...]:
+def parse_idle_statuses(text: object) -> tuple[str, ...]:
     """Iz niza, ločenega z vejicami, naredi seznam statusov mirovanja (brez presledkov, male črke)."""
     if not text:
         return ()
     return tuple(part.strip().lower() for part in str(text).split(",") if part.strip())
 
 
-def is_idle_status(value, idle_statuses) -> bool:
+def is_idle_status(value: object, idle_statuses: Iterable[str]) -> bool:
     """True, če status pomeni, da kabel ni priklopljen. Velike/male črke in presledki ne štejejo."""
     normalized = str(value).strip().lower()
     return normalized in ALWAYS_IDLE_STATES or normalized in idle_statuses

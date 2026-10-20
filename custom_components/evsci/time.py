@@ -1,4 +1,6 @@
 """Time entitete za nastavljanje urnika."""
+from __future__ import annotations
+
 import datetime
 from homeassistant.components.time import TimeEntity
 from homeassistant.const import EntityCategory
@@ -6,7 +8,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from .coordinator import EVSCIConfigEntry
+from .coordinator import EVSCIConfigEntry, EVSCICoordinator
 from .entity import EVSCIEntity
 
 # Koordinator je en sam in pošilja ukaze polnilniku zaporedno; vzporednih posodobitev ne omejujemo
@@ -14,7 +16,7 @@ from .entity import EVSCIEntity
 PARALLEL_UPDATES = 0
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: EVSCIConfigEntry, async_add_entities: AddEntitiesCallback):
+async def async_setup_entry(hass: HomeAssistant, entry: EVSCIConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
     """Nastavi time entitete."""
     coordinator = entry.runtime_data
     
@@ -28,7 +30,7 @@ class EVSCIScheduleStart(EVSCIEntity, TimeEntity, RestoreEntity):
     _attr_translation_key = "schedule_start"
     _attr_entity_category = EntityCategory.CONFIG
 
-    def __init__(self, coordinator):
+    def __init__(self, coordinator: EVSCICoordinator) -> None:
         super().__init__(coordinator)
         self._attr_unique_id = f"{coordinator.entry.entry_id}_schedule_start"
 
@@ -60,7 +62,7 @@ class EVSCIScheduleEnd(EVSCIEntity, TimeEntity, RestoreEntity):
     _attr_translation_key = "schedule_end"
     _attr_entity_category = EntityCategory.CONFIG
 
-    def __init__(self, coordinator):
+    def __init__(self, coordinator: EVSCICoordinator) -> None:
         super().__init__(coordinator)
         self._attr_unique_id = f"{coordinator.entry.entry_id}_schedule_end"
 

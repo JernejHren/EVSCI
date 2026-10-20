@@ -4,14 +4,15 @@ import datetime
 import time
 import asyncio
 from datetime import timedelta
+from typing import Any
 from homeassistant.util import dt as dt_util
 
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, State
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import ATTR_ENTITY_ID
-from homeassistant.components.number import SERVICE_SET_VALUE
+from homeassistant.components.number.const import SERVICE_SET_VALUE
 
 from .const import (
     DOMAIN, 
@@ -73,10 +74,10 @@ STALE_DATA_THRESHOLD = 60.0
 # Po tolikšnem času neprekinjenega izpada senzorja uporabniku pokažemo Popravek (Repair).
 OUTAGE_ISSUE_AFTER_SECONDS = 300.0
 
-class EVSCICoordinator(DataUpdateCoordinator):
+class EVSCICoordinator(DataUpdateCoordinator[dict[str, Any]]):
     """Glavni razred za upravljanje EV polnjenja."""
 
-    def __init__(self, hass: HomeAssistant, entry: ConfigEntry):
+    def __init__(self, hass: HomeAssistant, entry: ConfigEntry[Any]) -> None:
         super().__init__(
             hass,
             _LOGGER,
@@ -86,7 +87,7 @@ class EVSCICoordinator(DataUpdateCoordinator):
         )
         self.entry = entry
         self.selected_mode = MODE_OFF
-        self.calculated_amp = 0
+        self.calculated_amp: float = 0
         self.is_charging = False
         self._session_active = False
         self._pv_only_paused = False
@@ -101,7 +102,7 @@ class EVSCICoordinator(DataUpdateCoordinator):
         self.schedule_start = datetime.time(22, 0)
         self.schedule_end = datetime.time(6, 0)
         
-        self._last_charger_status_val = None 
+        self._last_charger_status_val: str | None = None
         self._cable_connected = False
         
         # Energija
@@ -133,7 +134,7 @@ class EVSCICoordinator(DataUpdateCoordinator):
         
         self._load_config()
 
-    def _set_issue(self, key: str, active: bool, placeholders: dict | None = None) -> None:
+    def _set_issue(self, key: str, active: bool, placeholders: dict[str, str] | None = None) -> None:
         """Ustvari ali odstrani Repair issue (samo ob spremembi)."""
         issue_id = f"{key}_{self.entry.entry_id}"
         if active and key not in self._active_issues:
@@ -176,7 +177,7 @@ class EVSCICoordinator(DataUpdateCoordinator):
         ]
         return [e for e in required if e and self.hass.states.get(e) is None]
 
-    def _load_config(self):
+    def _load_config(self) -> None:
         o = self.entry.options
         d = self.entry.data
         
@@ -234,23 +235,23 @@ class EVSCICoordinator(DataUpdateCoordinator):
         }
 
     @staticmethod
-    def _state_age_seconds(state):
+    def _state_age_seconds(state: State) -> float:
         """Starost zadnjega poročila senzorja (last_reported se osveži tudi pri nespremenjeni vrednosti)."""
         last_seen = state.last_reported or state.last_updated
         return (dt_util.utcnow() - last_seen).total_seconds()
 
-    def _read_phase_currents(self):
+    def _read_phase_currents(self) -> tuple[float, float, float] | None:
         """Tokovi L1-L3 (A) ali None, če katerega ni mogoče zanesljivo prebrati.
 
         None je pri zaščiti po fazah varno stanje (pavza), ker ne vemo, koliko
         prostora je na najbolj obremenjeni fazi. Tiho ignoriranje ni sprejemljivo.
         """
-        values = []
-        problem = None
+        values: list[float] = []
+        problem: str | None = None
         for name, entity_id in zip(("L1", "L2", "L3"), self.phase_entities):
             state = self.hass.states.get(entity_id) if entity_id else None
             value = self._parse_float(state.state) if state else None
-            if value is None:
+            if state is None or value is None:
                 problem = f"{name} ({entity_id or 'ni nastavljen'}) ni berljiv"
                 break
             age = self._state_age_seconds(state)
@@ -268,9 +269,9 @@ class EVSCICoordinator(DataUpdateCoordinator):
         if self._phase_unavailable_logged:
             _LOGGER.info("EVSCI: Tokovi po fazah so spet na voljo.")
             self._phase_unavailable_logged = False
-        return tuple(values)
+        return (values[0], values[1], values[2])
 
-    def _is_schedule_active(self):
+    def _is_schedule_active(self) -> bool:
         now = dt_util.now().time()
         start = self.schedule_start
         end = self.schedule_end
@@ -279,7 +280,7 @@ class EVSCICoordinator(DataUpdateCoordinator):
         else:
             return now >= start or now < end
 
-    async def _async_update_data(self):
+    async def _async_update_data(self) -> dict[str, Any]:
         """Glavna logika."""
         self._load_config()
 
@@ -345,15 +346,14 @@ class EVSCICoordinator(DataUpdateCoordinator):
         # Če toka polnilnika ni mogoče prebrati (unavailable/unknown), ne
         # ugibamo vrednosti, ampak ostanemo v varnem stanju (glej spodaj).
         charger_current_state = self.hass.states.get(self.charger_current_entity)
-        current_hw_amps = self._parse_float(charger_current_state.state) if charger_current_state else None
-        current_unreadable = current_hw_amps is None
+        parsed_current = self._parse_float(charger_current_state.state) if charger_current_state else None
+        current_hw_amps: float = 0.0 if parsed_current is None else parsed_current
+        current_unreadable = parsed_current is None
         self._track_outage(
             "charger_current_unavailable",
             "vrednost ni berljiva" if current_unreadable else None,
             self.charger_current_entity,
         )
-        if current_unreadable:
-            current_hw_amps = 0.0
 
         switch_state = self.hass.states.get(self.charger_switch_entity) if self.charger_switch_entity else None
         is_charging_from_switch = (switch_state.state == "on") if switch_state else False
@@ -420,7 +420,7 @@ class EVSCICoordinator(DataUpdateCoordinator):
         tariff_ok = (not self.tariff_entity) or (1 <= raw_tariff <= 5)
         phase_missing = False  # po branju tokov po fazah
 
-        def build_result(target_current, safety_amps_limit):
+        def build_result(target_current: float, safety_amps_limit: float) -> dict[str, Any]:
             # V načinu OFF ciljni tok (0) ne pomeni izpada; sicer ga vhodni signali določajo.
             inputs_ok = self.selected_mode == MODE_OFF or not (
                 data_is_stale or current_unreadable or phase_missing
@@ -514,7 +514,9 @@ class EVSCICoordinator(DataUpdateCoordinator):
 
         return build_result(self.calculated_amp, decision.safety_amps_limit)
 
-    async def _apply_changes(self, target_amps, should_be_active, current_hw_amps):
+    async def _apply_changes(
+        self, target_amps: float, should_be_active: bool, current_hw_amps: float
+    ) -> None:
         """Pošiljanje ukazov."""
         # Zagon ali nadaljevanje iz pavze (tok gre čez minimum): vključi grace period.
         if (
@@ -547,7 +549,7 @@ class EVSCICoordinator(DataUpdateCoordinator):
              else:
                  _LOGGER.debug("EVSCI: Session inactive, cable unplugged. Skip stop.")
 
-    async def _async_press_button(self, entity_id):
+    async def _async_press_button(self, entity_id: str | None) -> None:
         if not entity_id:
             return
         await self.hass.services.async_call(
@@ -556,7 +558,7 @@ class EVSCICoordinator(DataUpdateCoordinator):
             {ATTR_ENTITY_ID: entity_id},
         )
 
-    async def _async_start_session(self):
+    async def _async_start_session(self) -> None:
         if self.charger_start_button_entity:
             await self._async_press_button(self.charger_start_button_entity)
             self._session_active = True
@@ -567,7 +569,7 @@ class EVSCICoordinator(DataUpdateCoordinator):
             return
         _LOGGER.warning("EVSCI: Missing charger start control entity.")
 
-    async def _async_stop_session(self):
+    async def _async_stop_session(self) -> None:
         if self.charger_stop_button_entity:
             await self._async_press_button(self.charger_stop_button_entity)
             self._session_active = False
@@ -579,28 +581,28 @@ class EVSCICoordinator(DataUpdateCoordinator):
         _LOGGER.warning("EVSCI: Missing charger stop control entity.")
 
     @staticmethod
-    def _parse_float(value):
+    def _parse_float(value: Any) -> float | None:
         """Vrne float ali None, če vrednosti ni mogoče prebrati (unavailable, unknown, ...)."""
         try:
             return float(value)
         except (ValueError, TypeError):
             return None
 
-    def _get_float_state(self, entity_id):
+    def _get_float_state(self, entity_id: str | None) -> float:
         if not entity_id: return 0.0
         state = self.hass.states.get(entity_id)
         if state is None: return 0.0
         value = self._parse_float(state.state)
         return 0.0 if value is None else value
 
-    def _get_int_state(self, entity_id, default=0):
+    def _get_int_state(self, entity_id: str | None, default: int = 0) -> int:
         if not entity_id: return default
         state = self.hass.states.get(entity_id)
         if state is None: return default
         value = self._parse_float(state.state)
         return default if value is None else int(value)
 
-    def set_mode(self, mode):
+    def set_mode(self, mode: str) -> None:
         self.selected_mode = mode
         self.async_set_updated_data(self.data)
 

@@ -15,11 +15,11 @@ Legenda: **OK** izpolnjeno, **DELNO**, **TODO**, **N/A** (izvzeto z razlogom, v 
 | Bronze (20) | 14 | 0 | 0 | 6 |
 | Silver (10) | 8 | 0 | 0 | 2 |
 | Gold (21) | 16 | 0 | 0 | 5 |
-| Platinum (3) | 0 | 0 | 1 | 2 |
+| Platinum (3) | 1 | 0 | 0 | 2 |
 
 **Kumulativnost:** vsaka stopnja zahteva vsa pravila nižjih stopenj. Pravila za teste (`config-flow-test-coverage`, `test-coverage`) sta zdaj izpolnjena, zato Bronze, Silver in Gold po moji oceni stojijo. Formalno jih potrdi šele hassfest in `quality_scale.yaml` v repozitoriju (še ni narejen). Ocene `OK` pomenijo "narejeno v kodi in preverjeno s testi s pravim HA", ne "potrjeno s hassfestom".
 
-Preostalo: Platinum 1 TODO (`strict-typing`).
+Preostalo: nobenih TODO pravil. Platinum zahteva tudi `async-dependency` in `inject-websession`, ki sta za to integracijo N/A (brez knjižnic in omrežnih klicev).
 
 ## Bronze
 
@@ -93,7 +93,7 @@ Preostalo: Platinum 1 TODO (`strict-typing`).
 |---|---|---|
 | async-dependency | N/A | Ni knjižnic. |
 | inject-websession | N/A | Ni spletnih klicev. |
-| strict-typing | TODO | Tipiziranje je delno (`logic.py` je tipiziran); koordinator in entitete ne, brez `mypy --strict`. |
+| strict-typing | OK | `mypy --strict` (mypy.ini) je čist na vseh 11 datotekah integracije; preverja ga tudi CI (delovni tok `tests.yml`, opravilo `typing`). |
 
 ## Ugotovitve zunaj lestvice
 
@@ -108,6 +108,6 @@ Preostalo: Platinum 1 TODO (`strict-typing`).
 2. **Bronze/Silver strukturno (NAREJENO):** `runtime_data`, `entity.py` z `DeviceInfo` (naprava), `test-before-configure`/`test-before-setup` (ConfigEntryNotReady).
 3. **Gold uporabniška izkušnja (NAREJENO):** entity translations + `icons.json`, kategorije in privzeto onemogočene entitete, diagnostika, reconfigure flow, repair issues.
 4. **Dokumentacija (NAREJENO):** razdelki odstranitev, posodabljanje podatkov, omejitve, podprti polnilniki, odpravljanje težav, primeri.
-5. **Testi in CI (NAREJENO):** HA testi (config flow, setup, entitete, koordinator, popravki, diagnostika) s pravim HA, pytest + hassfest + HACS v GitHub Actions. Naslednje: `quality_scale.yaml` in `mypy --strict` za Platinum.
+5. **Testi in CI (NAREJENO):** HA testi (config flow, setup, entitete, koordinator, popravki, diagnostika) s pravim HA, pytest + hassfest + HACS v GitHub Actions. `mypy --strict` je čist, `quality_scale.yaml` je v repozitoriju. Naprej: potrditev s hassfestom v GitHub Actions.
 
 Pomembno: točke 1 do 3 spreminjajo vedenje HA (naprava, imena entitet, enolični ključ konfiguracije). Brez pravega HA ne morem potrditi, da obstoječe namestitve (entity_id, zgodovina energijskih števcev) ostanejo nedotaknjene, zato bi te korake preizkusil na tvojem HA, preden gredo v izdajo.

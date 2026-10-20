@@ -11,6 +11,7 @@ All notable changes to EVSCI since 0.1.3.
 - Per-phase main fuse protection for 3-phase installations. New setting "Main Fuse Protection" (*Total house power only* or *Total house power and each phase*). In the second mode you pick the current sensors (A) of L1, L2 and L3, and EVSCI applies the total limit and the per-phase limit at the same time: the stricter one wins, so an overloaded phase lowers the charging current on all phases. For a single-phase charger you also choose which phase it is on. If a phase sensor is unavailable or stale, charging pauses (a warning is logged once).
 - Brand images (`icon`, `logo` and a dark logo, each with an @2x version) in `custom_components/evsci/brand/`, so the integration shows its icon in Home Assistant 2026.3 and newer.
 - Tests with a real Home Assistant (`tests/test_ha_*.py`) for the config, options and reconfigure flows, setup and unload, devices and entities, availability, repairs, diagnostics, state restore and charger commands (98% coverage), plus GitHub Actions for pytest, hassfest and HACS validation.
+- Strict typing: the whole integration passes `mypy --strict` (checked in CI) and `quality_scale.yaml` records the status of each Home Assistant quality scale rule.
 - Unit tests (`tests/`, run with `python -m pytest tests`) for the charging decisions: cold start, ramp-up steps, startup grace period, overload protection, stale data, Target SoC, PV-only pause and resume, and the solar/grid energy split.
 
 ### Changed
