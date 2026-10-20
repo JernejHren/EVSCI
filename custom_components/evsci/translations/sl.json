@@ -253,13 +253,6 @@
         "total": "Samo po skupni porabi hiše",
         "per_phase": "Po skupni porabi hiše in po posamezni fazi (3f, zahteva senzorje toka)"
       }
-    },
-    "charger_phase": {
-      "options": {
-        "L1": "L1",
-        "L2": "L2",
-        "L3": "L3"
-      }
     }
   },
   "entity": {

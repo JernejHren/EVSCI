@@ -253,13 +253,6 @@
         "total": "Total house power only",
         "per_phase": "Total house power and each phase (3-phase, needs phase current sensors)"
       }
-    },
-    "charger_phase": {
-      "options": {
-        "L1": "L1",
-        "L2": "L2",
-        "L3": "L3"
-      }
     }
   },
   "entity": {

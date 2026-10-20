@@ -116,7 +116,6 @@ def _get_phases_schema(charger_phases: int) -> vol.Schema:
             selector.SelectSelectorConfig(
                 options=CHARGER_PHASES,
                 mode=selector.SelectSelectorMode.DROPDOWN,
-                translation_key=CONF_CHARGER_PHASE,
             )
         )
     return vol.Schema(fields)
