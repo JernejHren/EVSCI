@@ -1,0 +1,4 @@
+# Testi z resničnim Home Assistantom (vsebuje pytest, pytest-asyncio in HA samega).
+# Zahteva Python, ki ga podpira izbrana različica Home Assistanta (trenutno 3.13).
+pytest-homeassistant-custom-component
+pytest-cov

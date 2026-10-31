@@ -1,18 +1,32 @@
 """Senzorji za EVSCI."""
+from __future__ import annotations
+
+from typing import Any
+
 from homeassistant.components.sensor import (
     SensorEntity,
     SensorDeviceClass,
     SensorStateClass,
     RestoreSensor, # NOVO: Za lifetime senzorje
 )
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.const import EntityCategory
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.const import UnitOfPower, UnitOfElectricCurrent, UnitOfEnergy
 
-from .const import DOMAIN
+from .coordinator import EVSCIConfigEntry, EVSCICoordinator
+from .entity import EVSCIEntity
 
-async def async_setup_entry(hass, entry, async_add_entities):
+# Koordinator je en sam in pošilja ukaze polnilniku zaporedno; vzporednih posodobitev ne omejujemo
+# z semaforjem, ker entitete same ne kličejo naprave.
+PARALLEL_UPDATES = 0
+
+
+async def async_setup_entry(
+    hass: HomeAssistant, entry: EVSCIConfigEntry, async_add_entities: AddEntitiesCallback
+) -> None:
     """Nastavi senzorje."""
-    coordinator = hass.data[DOMAIN][entry.entry_id]
+    coordinator = entry.runtime_data
     
     sensors = [
         EVSCITargetCurrent(coordinator),
@@ -20,72 +34,89 @@ async def async_setup_entry(hass, entry, async_add_entities):
         EVSCITariffMonitor(coordinator),
         
         # NOVO: Energetski senzorji
-        EVSCISessionEnergy(coordinator, "session_total", "Session Energy Total"),
-        EVSCISessionEnergy(coordinator, "session_solar", "Session Energy Solar"),
-        EVSCISessionEnergy(coordinator, "session_grid", "Session Energy Grid"),
+        EVSCISessionEnergy(coordinator, "session_total"),
+        EVSCISessionEnergy(coordinator, "session_solar"),
+        EVSCISessionEnergy(coordinator, "session_grid"),
         
-        EVSCILifetimeEnergy(coordinator, "lifetime_total", "Lifetime Energy Total"),
-        EVSCILifetimeEnergy(coordinator, "lifetime_solar", "Lifetime Energy Solar"),
-        EVSCILifetimeEnergy(coordinator, "lifetime_grid", "Lifetime Energy Grid"),
+        EVSCILifetimeEnergy(coordinator, "lifetime_total"),
+        EVSCILifetimeEnergy(coordinator, "lifetime_solar"),
+        EVSCILifetimeEnergy(coordinator, "lifetime_grid"),
     ]
-    
-    if coordinator.data and coordinator.data.get("solar_power") is not None:
-         sensors.append(EVSCISolarMonitor(coordinator))
 
-    async_add_entities(sensors, True)
+    async_add_entities(sensors)
 
 
-class EVSCIBaseSensor(CoordinatorEntity, SensorEntity):
+class EVSCIBaseSensor(EVSCIEntity, SensorEntity):
     """Osnovni razred."""
-    def __init__(self, coordinator):
+    def __init__(self, coordinator: EVSCICoordinator) -> None:
         super().__init__(coordinator)
-        self._attr_has_entity_name = True
-        self._entry_id = coordinator.entry.entry_id
+        self._last_update_id: int | None = None
+
+    # Ključ v podatkih koordinatorja, ki pove, ali je vhodni signal te entitete na voljo.
+    # None = entiteta je vedno razpoložljiva (števci hranijo zadnjo vrednost).
+    _availability_key: str | None = None
+
+    @property
+    def available(self) -> bool:
+        """Entiteta je nedosegljiva, ko manjka vhodni signal, ki ga prikazuje."""
+        if not super().available:
+            return False
+        if self._availability_key is None:
+            return True
+        return bool((self.coordinator.data or {}).get(self._availability_key, True))
+
+    def _is_new_update(self, data: dict[str, Any]) -> bool:
+        """Ali gre za nov izračun koordinatorja.
+
+        Koordinator ob spremembi načina ali ob priklopu ponovno objavi stare
+        podatke. Prirastke energije smemo prišteti samo enkrat na izračun.
+        """
+        update_id = data.get("update_id")
+        if update_id is not None and update_id == self._last_update_id:
+            return False
+        self._last_update_id = update_id
+        return True
 
 class EVSCITargetCurrent(EVSCIBaseSensor):
-    _attr_name = "Target Current"
+    _attr_translation_key = "target_current"
+    _availability_key = "inputs_ok"
+    _attr_device_class = SensorDeviceClass.CURRENT
     _attr_native_unit_of_measurement = UnitOfElectricCurrent.AMPERE
-    _attr_icon = "mdi:current-ac"
-    def __init__(self, coordinator):
+    def __init__(self, coordinator: EVSCICoordinator) -> None:
         super().__init__(coordinator)
         self._attr_unique_id = f"{self._entry_id}_target_curr"
     @property
-    def native_value(self):
-        return self.coordinator.data.get("target_current", 0)
+    def native_value(self) -> float:
+        value: float = self.coordinator.data.get("target_current", 0)
+        return value
 
 class EVSCIGridMonitor(EVSCIBaseSensor):
-    _attr_name = "Monitored Grid Power"
+    _attr_translation_key = "monitored_grid_power"
+    _availability_key = "grid_ok"
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_entity_registry_enabled_default = False
     _attr_native_unit_of_measurement = UnitOfPower.WATT
     _attr_device_class = SensorDeviceClass.POWER
     _attr_state_class = SensorStateClass.MEASUREMENT
-    def __init__(self, coordinator):
+    def __init__(self, coordinator: EVSCICoordinator) -> None:
         super().__init__(coordinator)
         self._attr_unique_id = f"{self._entry_id}_mon_grid"
     @property
-    def native_value(self):
-        return self.coordinator.data.get("grid_power", 0)
-
-class EVSCISolarMonitor(EVSCIBaseSensor):
-    _attr_name = "Monitored Solar Power"
-    _attr_native_unit_of_measurement = UnitOfPower.WATT
-    _attr_device_class = SensorDeviceClass.POWER
-    _attr_state_class = SensorStateClass.MEASUREMENT
-    def __init__(self, coordinator):
-        super().__init__(coordinator)
-        self._attr_unique_id = f"{self._entry_id}_mon_solar"
-    @property
-    def native_value(self):
-        return self.coordinator.data.get("solar_power", 0)
+    def native_value(self) -> float:
+        value: float = self.coordinator.data.get("grid_power", 0)
+        return value
 
 class EVSCITariffMonitor(EVSCIBaseSensor):
-    _attr_name = "Monitored Tariff Block"
-    _attr_icon = "mdi:cash-clock"
-    def __init__(self, coordinator):
+    _attr_translation_key = "monitored_tariff_block"
+    _availability_key = "tariff_ok"
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    def __init__(self, coordinator: EVSCICoordinator) -> None:
         super().__init__(coordinator)
         self._attr_unique_id = f"{self._entry_id}_mon_tariff"
     @property
-    def native_value(self):
-        return self.coordinator.data.get("tariff", 1)
+    def native_value(self) -> float:
+        value: int = self.coordinator.data.get("tariff", 1)
+        return value
 
 # --- NOVI RAZREDI ZA ENERGIJO ---
 
@@ -95,27 +126,25 @@ class EVSCISessionEnergy(EVSCIBaseSensor):
     _attr_device_class = SensorDeviceClass.ENERGY
     _attr_state_class = SensorStateClass.TOTAL
     
-    def __init__(self, coordinator, key_type, name):
+    def __init__(self, coordinator: EVSCICoordinator, key_type: str) -> None:
         super().__init__(coordinator)
         self._key_type = key_type # 'session_total', 'session_solar', 'session_grid'
-        self._attr_name = name
+        self._attr_translation_key = key_type
         self._attr_unique_id = f"{self._entry_id}_{key_type}"
         self._state = 0.0
 
     @property
-    def native_value(self):
+    def native_value(self) -> float:
         return self._state
-
-    @property
-    def icon(self):
-        if "solar" in self._key_type: return "mdi:solar-power"
-        if "grid" in self._key_type: return "mdi:transmission-tower"
-        return "mdi:ev-station"
 
     def _handle_coordinator_update(self) -> None:
         """Kliče se vsakih 5 sekund, ko coordinator objavi nove podatke."""
         data = self.coordinator.data
-        
+
+        if not self._is_new_update(data):
+            self.async_write_ha_state()
+            return
+
         # Preveri za reset signal
         if data.get("reset_session"):
             self._state = 0.0
@@ -141,10 +170,10 @@ class EVSCILifetimeEnergy(EVSCIBaseSensor, RestoreSensor):
     _attr_device_class = SensorDeviceClass.ENERGY
     _attr_state_class = SensorStateClass.TOTAL_INCREASING
     
-    def __init__(self, coordinator, key_type, name):
+    def __init__(self, coordinator: EVSCICoordinator, key_type: str) -> None:
         super().__init__(coordinator)
         self._key_type = key_type
-        self._attr_name = name
+        self._attr_translation_key = key_type
         self._attr_unique_id = f"{self._entry_id}_{key_type}"
         self._state = 0.0
 
@@ -159,19 +188,17 @@ class EVSCILifetimeEnergy(EVSCIBaseSensor, RestoreSensor):
                 self._state = 0.0
 
     @property
-    def native_value(self):
+    def native_value(self) -> float:
         return self._state
         
-    @property
-    def icon(self):
-        if "solar" in self._key_type: return "mdi:solar-power"
-        if "grid" in self._key_type: return "mdi:transmission-tower"
-        return "mdi:counter"
-
     def _handle_coordinator_update(self) -> None:
         """Prištej prirastek."""
         data = self.coordinator.data
-        
+
+        if not self._is_new_update(data):
+            self.async_write_ha_state()
+            return
+
         inc_grid = data.get("energy_inc_grid", 0.0)
         inc_solar = data.get("energy_inc_solar", 0.0)
         

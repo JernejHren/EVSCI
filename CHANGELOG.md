@@ -2,6 +2,51 @@
 
 All notable changes to EVSCI since 0.1.3.
 
+## [Unreleased]
+
+## [0.3.0] - 2026-10-31
+
+### Added
+- New charging mode **Low Tariff** and a **Low Tariff Block** number entity (1-5, default 3). The mode works like Dynamic with the tariff block limits, but charges only in the selected block or in a cheaper one (a higher block number is cheaper) and pauses when the tariff moves to a more expensive block. It needs the Tariff Sensor and never charges without it.
+- Charger start/stop can now be a start/stop switch instead of two buttons. Select either a start and a stop button, or a switch; the setup form tells you if neither is chosen.
+- New setting "Statuses meaning cable not plugged in" (comma separated, not case sensitive). The default is the previous ABB list (`0, State A - Idle, False, No cable plugged`), so other chargers can map their own idle statuses. `unavailable` and `unknown` always count as not plugged in.
+- Per-phase main fuse protection for 3-phase installations. New setting "Main Fuse Protection" (*Total house power only* or *Total house power and each phase*). In the second mode you pick the current sensors (A) of L1, L2 and L3, and EVSCI applies the total limit and the per-phase limit at the same time: the stricter one wins, so an overloaded phase lowers the charging current on all phases. For a single-phase charger you also choose which phase it is on. If a phase sensor is unavailable or stale, charging pauses (a warning is logged once).
+- Brand images (`icon`, `logo` and a dark logo, each with an @2x version) in `custom_components/evsci/brand/`, so the integration shows its icon in Home Assistant 2026.3 and newer.
+- Tests with a real Home Assistant (`tests/test_ha_*.py`) for the config, options and reconfigure flows, setup and unload, devices and entities, availability, repairs, diagnostics, state restore and charger commands (98% coverage), plus GitHub Actions for pytest, hassfest and HACS validation.
+- Strict typing: the whole integration passes `mypy --strict` (checked in CI) and `quality_scale.yaml` records the status of each Home Assistant quality scale rule.
+- Unit tests (`tests/`, run with `python -m pytest tests`) for the charging decisions: cold start, ramp-up steps, startup grace period, overload protection, stale data, Target SoC, PV-only pause and resume, and the solar/grid energy split.
+
+### Changed
+- Entities now become unavailable when their input signal is missing: *Target Current* (except in mode OFF), *Monitored Grid Power* and *Monitored Tariff Block*. Settings entities and energy counters stay available. Charging behavior is unchanged (it already paused on missing signals).
+- Quality scale step 4: the README now explains how data is updated, supported devices, supported functions (entity table), use cases, automation examples, known limitations, troubleshooting and how to remove the integration.
+- Quality scale step 3 (Gold): entity names and icons are translated (`translations` and `icons.json`, English and Slovenian; English names are unchanged). Settings entities (Target SoC, Low Tariff Block, Schedule Start/End) are in the device's *Configuration* section and the monitor sensors are diagnostic entities. *Monitored Grid Power* is disabled by default on new installations. *Target Current* now has the current device class.
+- New: *Reconfigure* in the integration menu (same settings as at setup, entries keep their entity IDs), *Download diagnostics*, and Repairs that appear when the grid sensor, the charger current entity or a phase current sensor is unavailable for 5 minutes, or when the Low Tariff mode is selected without a tariff sensor.
+- Quality scale step 2: all entities now belong to one device, "EV Smart Charging". Existing installations keep their entity IDs and history (unique IDs are unchanged), but the friendly names now start with the device name. New installations get entity IDs with the device name as a prefix (for example `select.ev_smart_charging_charging_mode`); the examples in the README use the short IDs of existing installations.
+- Setup now waits (retries) when the grid sensor, charger current or charger power entity does not exist yet, which can happen at Home Assistant startup. The setup forms also check that the selected entities exist.
+- The coordinator is stored in `entry.runtime_data` instead of `hass.data`, and entities share the base class in `entity.py`.
+- Quality scale step 1: the manifest now lists a code owner, an issue tracker and `iot_class: calculated`; all platforms set `PARALLEL_UPDATES`; the setup forms have a description for every field (English and Slovenian).
+- Warnings about unavailable or stale sensors (grid, charger current, phase currents) are logged once when the problem starts, with an info message when the sensor is back. Before, the stale grid warning was repeated every 5 seconds.
+- The same charger can only be set up once: a second entry for the same charger current entity is rejected.
+- Charging now starts right away at the highest current the available power allows. The slow ramp-up at start (6 A, then +2 A every control interval) is gone in all modes. In the PV modes the current is still adjusted in 2 A steps during charging to avoid jumping up and down.
+- A 15 s grace period after start (or resume from pause) estimates the charger power from the commanded current while the charger's power sensor catches up. This prevents false overload detection and a false loss of PV surplus right after start.
+- Charger minimum current, maximum current and supply voltage are now settings (defaults 6 A, 32 A, 230 V) instead of hardcoded values.
+- The Tariff Block Sensor is now optional. Without it EVSCI always uses limit block 1.
+- The charging decision logic moved from the coordinator into pure functions in `logic.py`. Behavior is unchanged, the coordinator now only reads states, calls the decision and sends commands.
+
+### Removed
+- The optional solar power sensor (setup field and `Monitored Solar Power` entity). It was never used by the control logic, solar surplus is derived from the grid sensor. A leftover `solar_sensor` key in existing entries is ignored.
+
+### Fixed
+- Stale grid data detection now uses `last_reported`, so a grid sensor with a constant value is no longer treated as stale after 60 s.
+- Energy sensors no longer count the same increment twice when the mode changes or a cable is plugged in.
+- EV battery sensor values such as `80.0` are now accepted.
+- If the charger current entity is `unavailable` or `unknown`, EVSCI no longer assumes 6 A and sends no commands until it is readable again.
+- Bare `except:` clauses were narrowed to specific exceptions.
+- README: start/stop buttons instead of the legacy charger switch, correct `number.target_soc` entity in the dashboard example.
+
+## [0.2.1] - 2026-04-09
+- Release that actually contains the changes listed under 0.2.0 (Target SoC `number` entity, state restore for mode and schedule, session tracking and start/stop button support). The 0.2.0 tag did not include them yet.
+
 ## [0.2.0] - 2026-04-06
 - Configuration now asks for dedicated Charger Start and Charger Stop buttons (with legacy switch support still available) and the translations were updated so both languages describe the new controls.
 - Target SoC is exposed as a new `number` entity that restores its last value, giving a quick UI control for the stop percentage while letting EVSCI remember it across restarts.
