@@ -234,7 +234,7 @@ script:
 
 ## 📊 Dashboard Card
 
-> **Entity IDs:** The examples below use short IDs such as `select.charging_mode`. In the upcoming release all entities belong to the device *EV Smart Charging*. Installations that were set up before keep their old IDs. On a new installation the IDs start with the device name (for example `select.ev_smart_charging_charging_mode`), so adjust the card to your actual entity IDs.
+> **Entity IDs:** The examples below use short IDs such as `select.charging_mode`. Since version 0.3.0 all entities belong to the device *EV Smart Charging*. Installations that were set up before keep their old IDs. On a new installation the IDs start with the device name (for example `select.ev_smart_charging_charging_mode`), so adjust the card to your actual entity IDs.
 >
 > The sensor *Monitored Grid Power* is a copy of your own grid sensor, so it is a diagnostic entity and disabled by default on new installations. Enable it in the device page if you want it on the card, or point the card at your own grid sensor. The settings entities (Target SoC, Low Tariff Block, Schedule Start/End) are in the *Configuration* section of the device.
 
