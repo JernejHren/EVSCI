@@ -26,6 +26,10 @@ RAMP_UP_STEP = 2.0
 # Po zagonu (ali nadaljevanju iz pavze) senzor moči polnilnika zamuja za
 # dejanskim tokom, zato v tem času moč polnilnika ocenimo iz ukazanega toka.
 STARTUP_GRACE_SECONDS = 15.0
+# Po vsaki spremembi toka senzor moči polnilnika zamuja še več deset sekund.
+# V tem oknu moč polnilnika ocenimo iz ukazanega toka, sicer se hišna poraba
+# napačno izračuna in tok niha (npr. 6 A <-> 8 A).
+SETTLE_SECONDS = 30.0
 # Nad to močjo štejemo, da polnilnik dejansko polni.
 CHARGING_POWER_THRESHOLD_W = 50.0
 
@@ -123,6 +127,14 @@ def effective_charger_power(settings: Settings, inp: Inputs) -> float:
     """
     if is_in_grace(inp):
         return max(inp.charger_power, inp.last_commanded_amps * settings.power_per_amp)
+    if (
+        inp.is_charging
+        and inp.last_commanded_amps >= settings.min_amps
+        and inp.current_amps == inp.last_commanded_amps
+        and (inp.now - inp.last_amp_change_time) < SETTLE_SECONDS
+    ):
+        # Senzor moči še ni dohitel zadnje spremembe toka.
+        return inp.last_commanded_amps * settings.power_per_amp
     return inp.charger_power
 
 
@@ -300,8 +312,18 @@ def decide(settings: Settings, inp: Inputs) -> Decision:
             if per_phase_ok and phase_overload(settings, inp):
                 emergency = True
 
+            # Polnilnik je sam nastavil višji tok, kot smo ga ukazali (npr. ponastavitev
+            # na privzeto vrednost ob zagonu seje) in presega varno mejo: takoj znižaj.
+            unexpected_over_limit = (
+                inp.last_commanded_amps > 0
+                and current > inp.last_commanded_amps
+                and current > amps_limit_maintain
+            )
+
             if emergency:
                 adjusted_amps = min_amps if current > min_amps else 0
+            elif unexpected_over_limit:
+                adjusted_amps = candidate_amps
             elif time_since_change >= settings.control_interval:
                 adjusted_amps = candidate_amps
             else:

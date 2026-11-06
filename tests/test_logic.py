@@ -829,3 +829,23 @@ def test_low_tariff_stop_waits_for_control_interval():
 
 def test_low_tariff_keeps_charging_when_block_gets_cheaper():
     assert decide(S, _charging_in_low_tariff(4, ELAPSED)).target_amps >= 12
+
+
+def test_settle_window_uses_commanded_power_not_lagging_sensor():
+    """Po spremembi toka senzor moči zamuja: moč ocenimo iz ukazanega toka."""
+    inp = inputs(is_charging=True, current_amps=8, last_commanded_amps=8,
+                 charger_power=4200.0, last_amp_change_time=990.0)
+    assert effective_charger_power(S, inp) == 8 * PPA
+    later = inputs(is_charging=True, current_amps=8, last_commanded_amps=8,
+                   charger_power=4200.0, last_amp_change_time=0.0)
+    assert effective_charger_power(S, later) == 4200.0
+
+
+def test_charger_reset_to_higher_current_is_cut_immediately():
+    """Polnilnik ob zagonu seje sam skoči na 16 A: takoj nazaj na varno mejo, brez čakanja intervala."""
+    inp = inputs(mode=MODE_SCHEDULE, is_charging=True, current_amps=16,
+                 last_commanded_amps=8, grid_power=9000.0, charger_power=0.0,
+                 block_limit_w=8000.0, last_amp_change_time=990.0)
+    d = decide(S, inp)
+    assert d.target_amps < 16
+    assert d.target_amps <= 8

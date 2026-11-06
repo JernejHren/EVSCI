@@ -521,12 +521,17 @@ class EVSCICoordinator(DataUpdateCoordinator[dict[str, Any]]):
         # Zagon ali nadaljevanje iz pavze (tok gre čez minimum): vključi grace period.
         if (
             target_amps >= self.min_amps
-            and current_hw_amps < self.min_amps
-            and (self.is_charging or should_be_active)
+            and (
+                (current_hw_amps < self.min_amps and (self.is_charging or should_be_active))
+                or (should_be_active and not self.is_charging)
+            )
         ):
             self._grace_until = time.time() + STARTUP_GRACE_SECONDS
 
-        if target_amps != current_hw_amps:
+        starting = should_be_active and not self.is_charging
+        # Ob hladnem zagonu tok nastavimo šele PO startu seje (polnilnik ob novi seji
+        # lahko ponastavi tok na privzeto vrednost, npr. 16 A).
+        if target_amps != current_hw_amps and not (starting and target_amps > 0):
             if self.is_charging or should_be_active:
                 _LOGGER.info(f"EVSCI: Tok {current_hw_amps}A -> {target_amps}A")
                 await self.hass.services.async_call("number", SERVICE_SET_VALUE, {ATTR_ENTITY_ID: self.charger_current_entity, "value": target_amps})
@@ -537,10 +542,10 @@ class EVSCICoordinator(DataUpdateCoordinator[dict[str, Any]]):
              if target_amps > 0: # Start Threshold
                  _LOGGER.info("EVSCI: Start Session (Button PRESS)")
                  await self._async_start_session()
-                 if target_amps > 0:
-                     await asyncio.sleep(1)
-                     await self.hass.services.async_call("number", SERVICE_SET_VALUE, {ATTR_ENTITY_ID: self.charger_current_entity, "value": target_amps})
-                     self._last_commanded_amps = target_amps
+                 await asyncio.sleep(2)
+                 await self.hass.services.async_call("number", SERVICE_SET_VALUE, {ATTR_ENTITY_ID: self.charger_current_entity, "value": target_amps})
+                 self._last_commanded_amps = target_amps
+                 self._last_amp_change_time = time.time()
              
         elif not should_be_active and self.is_charging:
              if self._cable_connected:
