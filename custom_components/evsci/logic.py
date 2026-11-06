@@ -337,7 +337,13 @@ def decide(settings: Settings, inp: Inputs) -> Decision:
             safe_target_up = min(safe_target_up, pv_only_up_amps)
 
         if safe_target_up > current:
-            is_startup = current < min_amps and safe_target_up >= min_amps
+            # Med grace periodom in takoj po spremembi toka senzor moči še ne kaže
+            # dejanske porabe, zato izračunani "višek" ni zanesljiv: tok ne dvigamo.
+            settling = inp.last_commanded_amps >= min_amps and (
+                in_grace
+                or (inp.is_charging and time_since_change < SETTLE_SECONDS)
+            )
+            is_startup = current < min_amps and safe_target_up >= min_amps and not settling
             is_pv_only_start_blocked = (
                 inp.mode == MODE_PV_ONLY
                 and current < min_amps
@@ -347,6 +353,8 @@ def decide(settings: Settings, inp: Inputs) -> Decision:
 
             if is_pv_only_start_blocked:
                 adjusted_amps = 0
+            elif settling and inp.is_charging:
+                adjusted_amps = current
             elif not inp.is_charging:
                 # Hladen zagon: takoj z največjim varnim tokom (brez ramp-upa).
                 adjusted_amps = safe_target_up
