@@ -58,6 +58,7 @@ from .const import (
 from .logic import (
     CHARGING_POWER_THRESHOLD_W,
     STARTUP_GRACE_SECONDS,
+    SETTLE_SECONDS,
     Inputs,
     Settings,
     decide,
@@ -113,6 +114,9 @@ class EVSCICoordinator(DataUpdateCoordinator[dict[str, Any]]):
         
         # Rate Limiting
         self._last_amp_change_time = 0.0
+        # Zadnja zanesljiva hišna poraba (omrežje - moč polnilnika), ko senzor moči
+        # polnilnika ni več zamujal za spremembo toka.
+        self._house_load_ref: float | None = None
 
         # Zagon: do kdaj velja "grace period" in kakšen tok smo nazadnje ukazali
         self._grace_until = 0.0
@@ -501,6 +505,7 @@ class EVSCICoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 tariff_block=tariff,
                 low_tariff_block=self.user_low_tariff_block,
                 tariff_known=bool(self.tariff_entity) and self._tariff_seen_valid,
+                house_load_ref=self._house_load_ref,
             ),
         )
 
@@ -514,6 +519,11 @@ class EVSCICoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self.block_limits.get(tariff, 6000), tariff, decision.target_amps,
             decision.safety_amps_limit, decision.emergency,
         )
+
+        # Referenco hišne porabe osvežimo samo, ko senzor moči polnilnika ne zamuja.
+        if not self.is_charging or (now_time - self._last_amp_change_time) >= SETTLE_SECONDS:
+            if not data_is_stale:
+                self._house_load_ref = grid_power - charger_real_power
 
         if decision.emergency:
             _LOGGER.info("EVSCI: Kritična preobremenitev! Znižujem takoj.")

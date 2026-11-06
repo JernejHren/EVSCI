@@ -99,6 +99,9 @@ class Inputs:
     tariff_block: int = 1
     low_tariff_block: int = 3
     tariff_known: bool = True
+    # Hišna poraba (omrežje - moč polnilnika), izmerjena, ko je senzor moči polnilnika
+    # še sledil toku. Med zamikom senzorja uporabimo to vrednost namesto napačne.
+    house_load_ref: float | None = None
 
 
 @dataclass(frozen=True)
@@ -119,13 +122,36 @@ def is_in_grace(inp: Inputs) -> bool:
     return inp.now < inp.grace_until
 
 
-def effective_charger_power(settings: Settings, inp: Inputs) -> float:
-    """Moč polnilnika za izračun: samo izmerjena vrednost.
+def is_settling(settings: Settings, inp: Inputs) -> bool:
+    """Senzor moči polnilnika še ne sledi zadnji spremembi toka.
 
-    Ocene iz ukazanega toka ne uporabljamo: takoj po zagonu bi napihnila moč
-    polnilnika in hišno porabo naredila negativno (skok na 14-16 A). Zamik senzorja
-    rešimo z zadrževanjem toka (glej SETTLE_SECONDS), ne z ocenjevanjem.
+    Konča se, ko izmerjena moč polnilnika ustreza razliki ``omrežje - referenčna hiša``
+    (senzor je dohitel), najkasneje po SETTLE_SECONDS.
     """
+    if not (
+        inp.is_charging
+        and inp.last_commanded_amps >= settings.min_amps
+        and (is_in_grace(inp) or (inp.now - inp.last_amp_change_time) < SETTLE_SECONDS)
+    ):
+        return False
+    if inp.house_load_ref is not None:
+        expected = max(0.0, inp.grid_power - inp.house_load_ref)
+        tolerance = 0.15 * inp.last_commanded_amps * settings.power_per_amp + 300.0
+        if abs(inp.charger_power - expected) <= tolerance:
+            return False
+    return True
+
+
+def effective_charger_power(settings: Settings, inp: Inputs) -> float:
+    """Moč polnilnika za izračun.
+
+    Običajno izmerjena. Med zamikom senzorja (do ~40 s po spremembi toka) je izmerjena
+    vrednost zastarela, zato vzamemo ``omrežje - zadnja zanesljiva hišna poraba``.
+    Ocene iz ukazanega toka ne uporabljamo: takoj po zagonu bi napihnila moč
+    polnilnika in dala negativno hišo (skok na 14-16 A).
+    """
+    if inp.house_load_ref is not None and is_settling(settings, inp):
+        return max(0.0, inp.grid_power - inp.house_load_ref)
     return inp.charger_power
 
 
@@ -287,11 +313,7 @@ def decide(settings: Settings, inp: Inputs) -> Decision:
     adjusted_amps = current
     emergency = False
     time_since_change = inp.now - inp.last_amp_change_time
-    settling = (
-        inp.is_charging
-        and inp.last_commanded_amps >= min_amps
-        and (is_in_grace(inp) or time_since_change < SETTLE_SECONDS)
-    )
+    settling = is_settling(settings, inp)
 
     if candidate_amps < current:
         # ZNIŽEVANJE
@@ -301,9 +323,7 @@ def decide(settings: Settings, inp: Inputs) -> Decision:
             adjusted_amps = candidate_amps
         else:
             current_total_amps = (current * ppa + house_load) / house_ppa
-            # Skupni tok iz hišne porabe je med zamikom senzorja nezanesljiv; takrat
-            # velja samo dejanska moč omrežja (spodaj) in tokovi po fazah.
-            if current_total_amps > settings.max_fuse_amps and not settling:
+            if current_total_amps > settings.max_fuse_amps:
                 emergency = True
             if inp.mode != MODE_MAX_POWER and inp.grid_power > limit_emergency:
                 emergency = True
@@ -325,8 +345,6 @@ def decide(settings: Settings, inp: Inputs) -> Decision:
                     adjusted_amps = current  # še čakamo, da znižanje zaleže
                 else:
                     adjusted_amps = 0
-            elif settling:
-                adjusted_amps = inp.last_commanded_amps
             elif unexpected_over_limit:
                 adjusted_amps = candidate_amps
             elif time_since_change >= settings.control_interval:
@@ -352,9 +370,6 @@ def decide(settings: Settings, inp: Inputs) -> Decision:
 
             if is_pv_only_start_blocked:
                 adjusted_amps = 0
-            elif settling and inp.is_charging:
-                # Držimo ukazani tok; odčitek toka polnilnika lahko še zamuja (npr. 0 A).
-                adjusted_amps = inp.last_commanded_amps
             elif not inp.is_charging:
                 # Hladen zagon: takoj z največjim varnim tokom (brez ramp-upa).
                 adjusted_amps = safe_target_up

@@ -212,6 +212,7 @@ def _late_sensor(grace_until):
         grid_power=3000 + 19 * PPA,
         last_commanded_amps=19.0,
         grace_until=grace_until,
+        house_load_ref=3000.0,   # zadnja zanesljiva hiša (pred zagonom)
     )
 
 
@@ -724,10 +725,11 @@ def _late_phase_sensor(grace_until):
     return phased(
         (22, 22, 22), mode=MODE_MAX_POWER, is_charging=True, current_amps=19.0,
         charger_power=0.0, last_commanded_amps=19.0, grace_until=grace_until,
+        house_load_ref=22 * 3 * 230 - 19 * PPA,   # zadnja zanesljiva hiša (pred zagonom)
     )
 
 
-def test_grace_period_estimates_charger_current_per_phase():
+def test_grace_period_uses_reference_house_load_per_phase():
     d = decide(P3, _late_phase_sensor(grace_until=1010))
     assert d.in_grace is True
     assert d.emergency is False
@@ -898,7 +900,7 @@ def test_log_sensor_still_zero_35s_after_start_does_not_drop_to_zero():
     """Omrežje že kaže 8 A (7741 W), senzor moči polnilnika še 0 W: ostani na 8 A."""
     d = decide(S, _log(is_charging=True, current_amps=8, grid_power=7741.0,
                        charger_power=0.0, last_commanded_amps=8.0,
-                       last_amp_change_time=965.0))
+                       last_amp_change_time=965.0, house_load_ref=2100.0))
     assert d.target_amps == 8
 
 
@@ -914,3 +916,12 @@ def test_emergency_at_minimum_current_waits_for_settle_before_stopping():
                        charger_power=0.0, last_commanded_amps=6.0,
                        last_amp_change_time=990.0))
     assert d.target_amps == 6
+
+
+def test_log_house_load_during_sensor_lag_uses_reference():
+    """20 s po spremembi senzor še kaže 0 W, omrežje že vsebuje 6 A: hiša ostane 2100 W."""
+    d = decide(S, _log(is_charging=True, current_amps=6, grid_power=2100.0 + 6 * PPA,
+                       charger_power=0.0, last_commanded_amps=6.0,
+                       last_amp_change_time=980.0, house_load_ref=2100.0))
+    assert d.house_load == pytest.approx(2100.0)
+    assert d.emergency is False
