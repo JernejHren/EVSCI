@@ -849,3 +849,25 @@ def test_charger_reset_to_higher_current_is_cut_immediately():
     d = decide(S, inp)
     assert d.target_amps < 16
     assert d.target_amps <= 8
+
+
+def test_no_increase_during_grace_even_if_sensor_lags():
+    """Po zagonu s 7 A senzor še kaže 0 W: tok se ne sme dvigniti na 14 A."""
+    inp = inputs(mode=MODE_SCHEDULE, is_charging=True, current_amps=7,
+                 last_commanded_amps=7, grid_power=2100.0, charger_power=0.0,
+                 block_limit_w=8000.0, grace_until=1010.0, last_amp_change_time=998.0)
+    assert decide(S, inp).target_amps == 7
+
+
+def test_no_increase_during_grace_when_current_reads_zero():
+    inp = inputs(mode=MODE_SCHEDULE, is_charging=True, current_amps=0,
+                 last_commanded_amps=7, grid_power=2100.0, charger_power=0.0,
+                 block_limit_w=8000.0, grace_until=1010.0, last_amp_change_time=998.0)
+    assert decide(S, inp).target_amps <= 7
+
+
+def test_no_increase_while_sensor_settles_after_change():
+    inp = inputs(mode=MODE_SCHEDULE, is_charging=True, current_amps=6,
+                 last_commanded_amps=6, grid_power=2100.0 + 6 * PPA, charger_power=0.0,
+                 block_limit_w=8000.0, last_amp_change_time=990.0)
+    assert decide(S, inp).target_amps == 6
