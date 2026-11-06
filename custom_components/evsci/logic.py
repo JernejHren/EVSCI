@@ -354,7 +354,8 @@ def decide(settings: Settings, inp: Inputs) -> Decision:
             if is_pv_only_start_blocked:
                 adjusted_amps = 0
             elif settling and inp.is_charging:
-                adjusted_amps = current
+                # Držimo ukazani tok; odčitek toka polnilnika lahko še zamuja (npr. 0 A).
+                adjusted_amps = max(current, inp.last_commanded_amps)
             elif not inp.is_charging:
                 # Hladen zagon: takoj z največjim varnim tokom (brez ramp-upa).
                 adjusted_amps = safe_target_up

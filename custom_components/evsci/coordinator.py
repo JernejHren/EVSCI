@@ -504,6 +504,17 @@ class EVSCICoordinator(DataUpdateCoordinator[dict[str, Any]]):
             ),
         )
 
+        _LOGGER.debug(
+            "EVSCI cikel: mode=%s grid=%.0fW charger=%.0fW (eff %.0fW) house=%.0fW "
+            "hw=%.1fA cmd=%.1fA since_change=%.0fs grace=%s charging=%s "
+            "limit_block=%s tariff=%s -> target=%.1fA safety=%.1fA emergency=%s",
+            self.selected_mode, grid_power, charger_real_power, decision.charger_power_eff,
+            decision.house_load, current_hw_amps, self._last_commanded_amps,
+            now_time - self._last_amp_change_time, decision.in_grace, self.is_charging,
+            self.block_limits.get(tariff, 6000), tariff, decision.target_amps,
+            decision.safety_amps_limit, decision.emergency,
+        )
+
         if decision.emergency:
             _LOGGER.info("EVSCI: Kritična preobremenitev! Znižujem takoj.")
 

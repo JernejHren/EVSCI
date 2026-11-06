@@ -871,3 +871,11 @@ def test_no_increase_while_sensor_settles_after_change():
                  last_commanded_amps=6, grid_power=2100.0 + 6 * PPA, charger_power=0.0,
                  block_limit_w=8000.0, last_amp_change_time=990.0)
     assert decide(S, inp).target_amps == 6
+
+
+def test_hold_uses_commanded_current_when_readback_lags():
+    """Po zagonu odčitek toka še kaže 0 A: držimo ukazanih 7 A, ne 0."""
+    inp = inputs(mode=MODE_SCHEDULE, is_charging=True, current_amps=0,
+                 last_commanded_amps=7, grid_power=2100.0, charger_power=0.0,
+                 block_limit_w=8000.0, grace_until=1010.0, last_amp_change_time=998.0)
+    assert decide(S, inp).target_amps == 7
