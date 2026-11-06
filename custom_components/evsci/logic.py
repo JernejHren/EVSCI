@@ -26,10 +26,11 @@ RAMP_UP_STEP = 2.0
 # Po zagonu (ali nadaljevanju iz pavze) senzor moči polnilnika zamuja za
 # dejanskim tokom, zato v tem času moč polnilnika ocenimo iz ukazanega toka.
 STARTUP_GRACE_SECONDS = 15.0
-# Po vsaki spremembi toka senzor moči polnilnika zamuja še več deset sekund.
-# V tem oknu moč polnilnika ocenimo iz ukazanega toka, sicer se hišna poraba
-# napačno izračuna in tok niha (npr. 6 A <-> 8 A).
-SETTLE_SECONDS = 30.0
+# Po vsaki spremembi toka (in po zagonu seje) senzor moči polnilnika zamuja do ~40 s
+# (izmerjeno na ABB Terra AC). V tem oknu hišne porabe ni mogoče zanesljivo izračunati
+# (omrežje - moč polnilnika), zato tok držimo na ukazani vrednosti. Izjema je nujno
+# znižanje, ki temelji samo na dejanski moči omrežja.
+SETTLE_SECONDS = 60.0
 # Nad to močjo štejemo, da polnilnik dejansko polni.
 CHARGING_POWER_THRESHOLD_W = 50.0
 
@@ -119,22 +120,12 @@ def is_in_grace(inp: Inputs) -> bool:
 
 
 def effective_charger_power(settings: Settings, inp: Inputs) -> float:
-    """Moč polnilnika za izračun.
+    """Moč polnilnika za izračun: samo izmerjena vrednost.
 
-    V grace periodu senzor moči še zamuja, zato vzamemo večjo od izmerjene in
-    ocenjene moči (ukazani tok × moč na amper). Brez tega bi se hišna poraba
-    napihnila in sprožila lažno preobremenitev.
+    Ocene iz ukazanega toka ne uporabljamo: takoj po zagonu bi napihnila moč
+    polnilnika in hišno porabo naredila negativno (skok na 14-16 A). Zamik senzorja
+    rešimo z zadrževanjem toka (glej SETTLE_SECONDS), ne z ocenjevanjem.
     """
-    if is_in_grace(inp):
-        return max(inp.charger_power, inp.last_commanded_amps * settings.power_per_amp)
-    if (
-        inp.is_charging
-        and inp.last_commanded_amps >= settings.min_amps
-        and inp.current_amps == inp.last_commanded_amps
-        and (inp.now - inp.last_amp_change_time) < SETTLE_SECONDS
-    ):
-        # Senzor moči še ni dohitel zadnje spremembe toka.
-        return inp.last_commanded_amps * settings.power_per_amp
     return inp.charger_power
 
 
@@ -296,6 +287,11 @@ def decide(settings: Settings, inp: Inputs) -> Decision:
     adjusted_amps = current
     emergency = False
     time_since_change = inp.now - inp.last_amp_change_time
+    settling = (
+        inp.is_charging
+        and inp.last_commanded_amps >= min_amps
+        and (is_in_grace(inp) or time_since_change < SETTLE_SECONDS)
+    )
 
     if candidate_amps < current:
         # ZNIŽEVANJE
@@ -305,7 +301,9 @@ def decide(settings: Settings, inp: Inputs) -> Decision:
             adjusted_amps = candidate_amps
         else:
             current_total_amps = (current * ppa + house_load) / house_ppa
-            if current_total_amps > settings.max_fuse_amps:
+            # Skupni tok iz hišne porabe je med zamikom senzorja nezanesljiv; takrat
+            # velja samo dejanska moč omrežja (spodaj) in tokovi po fazah.
+            if current_total_amps > settings.max_fuse_amps and not settling:
                 emergency = True
             if inp.mode != MODE_MAX_POWER and inp.grid_power > limit_emergency:
                 emergency = True
@@ -321,7 +319,14 @@ def decide(settings: Settings, inp: Inputs) -> Decision:
             )
 
             if emergency:
-                adjusted_amps = min_amps if current > min_amps else 0
+                if current > min_amps:
+                    adjusted_amps = min_amps
+                elif settling:
+                    adjusted_amps = current  # še čakamo, da znižanje zaleže
+                else:
+                    adjusted_amps = 0
+            elif settling:
+                adjusted_amps = inp.last_commanded_amps
             elif unexpected_over_limit:
                 adjusted_amps = candidate_amps
             elif time_since_change >= settings.control_interval:
@@ -337,13 +342,7 @@ def decide(settings: Settings, inp: Inputs) -> Decision:
             safe_target_up = min(safe_target_up, pv_only_up_amps)
 
         if safe_target_up > current:
-            # Med grace periodom in takoj po spremembi toka senzor moči še ne kaže
-            # dejanske porabe, zato izračunani "višek" ni zanesljiv: tok ne dvigamo.
-            settling = inp.last_commanded_amps >= min_amps and (
-                in_grace
-                or (inp.is_charging and time_since_change < SETTLE_SECONDS)
-            )
-            is_startup = current < min_amps and safe_target_up >= min_amps and not settling
+            is_startup = current < min_amps and safe_target_up >= min_amps
             is_pv_only_start_blocked = (
                 inp.mode == MODE_PV_ONLY
                 and current < min_amps
@@ -355,7 +354,7 @@ def decide(settings: Settings, inp: Inputs) -> Decision:
                 adjusted_amps = 0
             elif settling and inp.is_charging:
                 # Držimo ukazani tok; odčitek toka polnilnika lahko še zamuja (npr. 0 A).
-                adjusted_amps = max(current, inp.last_commanded_amps)
+                adjusted_amps = inp.last_commanded_amps
             elif not inp.is_charging:
                 # Hladen zagon: takoj z največjim varnim tokom (brez ramp-upa).
                 adjusted_amps = safe_target_up
