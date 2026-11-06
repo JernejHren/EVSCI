@@ -134,9 +134,16 @@ def is_settling(settings: Settings, inp: Inputs) -> bool:
         and (is_in_grace(inp) or (inp.now - inp.last_amp_change_time) < SETTLE_SECONDS)
     ):
         return False
+    # Senzor je dohitel, ko se izmerjena moč ujema z ukazanim tokom (avto vleče ~toliko,
+    # kot je ukazano) ali z razliko omrežje - referenčna hiša. Toleranca mora biti
+    # bistveno manjša od koraka 1 A (690 W), sicer zamujena vrednost za en amper
+    # napačno velja za veljavno (izmerjeno v logu: 4227 W kot 6 A pri ukazanih 7 A).
+    commanded_w = inp.last_commanded_amps * settings.power_per_amp
+    tolerance = 0.05 * commanded_w + 100.0
+    if abs(inp.charger_power - commanded_w) <= tolerance:
+        return False
     if inp.house_load_ref is not None:
         expected = max(0.0, inp.grid_power - inp.house_load_ref)
-        tolerance = 0.15 * inp.last_commanded_amps * settings.power_per_amp + 300.0
         if abs(inp.charger_power - expected) <= tolerance:
             return False
     return True

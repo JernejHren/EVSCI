@@ -925,3 +925,22 @@ def test_log_house_load_during_sensor_lag_uses_reference():
                        last_amp_change_time=980.0, house_load_ref=2100.0))
     assert d.house_load == pytest.approx(2100.0)
     assert d.emergency is False
+
+
+# ---- ponovitev loga 22:54 (zamujena moč polnilnika za 1 A ne sme veljati za veljavno) ----
+
+def test_log_stale_one_amp_sensor_does_not_cut_current():
+    """7 A ukazano, senzor še kaže 4227 W (=6 A): hiša ostane 2441 W, tok ostane 7 A."""
+    d = decide(S, _log(is_charging=True, current_amps=7, grid_power=7423.0,
+                       charger_power=4227.0, last_commanded_amps=7.0,
+                       last_amp_change_time=985.0, house_load_ref=2441.0))
+    assert d.house_load == pytest.approx(2441.0)
+    assert d.target_amps == 7
+
+
+def test_log_sensor_caught_up_uses_measured_power():
+    """Senzor kaže ~710 W/A za ukazanih 7 A: veljavna meritev, hiša iz meritve."""
+    d = decide(S, _log(is_charging=True, current_amps=7, grid_power=8200.0,
+                       charger_power=4975.0, last_commanded_amps=7.0,
+                       last_amp_change_time=985.0, house_load_ref=2441.0))
+    assert d.house_load == pytest.approx(8200.0 - 4975.0)
