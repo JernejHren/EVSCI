@@ -272,9 +272,15 @@ def _dynamic_slightly_over(last_change):
     )
 
 
-def test_non_emergency_decrease_waits_for_control_interval():
-    d = decide(S, _dynamic_slightly_over(TOO_SOON))
+def test_over_limit_decrease_is_immediate_once_grid_reflects_last_change():
+    """Dogovor (7. 11.): znižanje takoj ob preseganju limita, brez čakanja intervala/bufferja."""
+    d = decide(S, _dynamic_slightly_over(TOO_SOON))   # zadnja sprememba pred 10 s
     assert d.emergency is False
+    assert d.target_amps < 20
+
+
+def test_over_limit_decrease_waits_until_grid_reflects_last_change():
+    d = decide(S, _dynamic_slightly_over(996.0))      # zadnja sprememba pred 4 s
     assert d.target_amps == 20
 
 
@@ -969,3 +975,33 @@ def test_settling_charger_power_never_exceeds_commanded():
     inp = _log(is_charging=True, current_amps=10, grid_power=9990.0, charger_power=5659.0,
                last_commanded_amps=10.0, last_amp_change_time=975.0, house_load_ref=392.0)
     assert effective_charger_power(S, inp) == 10 * PPA
+
+
+# ---- takojšnje znižanje ob preseganju limita (brez bufferja in brez čakanja intervala) ----
+
+def test_over_limit_by_90w_cuts_one_amp_immediately():
+    d = decide(S, _log(is_charging=True, current_amps=8, grid_power=8090.0,
+                       charger_power=5672.0, last_commanded_amps=8.0,
+                       last_amp_change_time=900.0, house_load_ref=2418.0))
+    assert d.target_amps == 7
+
+
+def test_over_limit_cut_is_proportional_to_overshoot():
+    d = decide(S, _log(is_charging=True, current_amps=10, grid_power=8000.0 + 2 * PPA + 10,
+                       charger_power=6900.0, last_commanded_amps=10.0,
+                       last_amp_change_time=900.0, house_load_ref=1000.0))
+    assert d.target_amps <= 7
+
+
+def test_over_limit_not_counted_twice_before_grid_reflects_change():
+    d = decide(S, _log(is_charging=True, current_amps=8, grid_power=8090.0,
+                       charger_power=5672.0, last_commanded_amps=8.0,
+                       last_amp_change_time=996.0, house_load_ref=2418.0))
+    assert d.target_amps == 8
+
+
+def test_at_limit_exactly_keeps_current():
+    d = decide(S, _log(is_charging=True, current_amps=8, grid_power=8000.0,
+                       charger_power=5600.0, last_commanded_amps=8.0,
+                       last_amp_change_time=900.0, house_load_ref=2400.0))
+    assert d.target_amps == 8

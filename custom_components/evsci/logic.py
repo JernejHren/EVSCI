@@ -31,6 +31,9 @@ STARTUP_GRACE_SECONDS = 15.0
 # (omrežje - moč polnilnika), zato tok držimo na ukazani vrednosti. Izjema je nujno
 # znižanje, ki temelji samo na dejanski moči omrežja.
 SETTLE_SECONDS = 60.0
+# Omrežje pokaže spremembo toka po ~10 s. Prej presežka ne ocenjujemo kot novega
+# (sicer bi dvakrat znižali zaradi iste spremembe).
+GRID_REACT_SECONDS = 10.0
 # Nad to močjo štejemo, da polnilnik dejansko polni.
 CHARGING_POWER_THRESHOLD_W = 50.0
 
@@ -334,9 +337,33 @@ def decide(settings: Settings, inp: Inputs) -> Decision:
         and inp.grid_power > limit_emergency
     )
 
+    over_limit = (
+        inp.is_charging
+        and current > 0
+        and inp.mode != MODE_MAX_POWER
+        and inp.grid_power > limit_maintain
+        and time_since_change >= GRID_REACT_SECONDS
+    )
+
     if forced_emergency:
         emergency = True
         if current > min_amps:
+            adjusted_amps = min_amps
+        elif settling:
+            adjusted_amps = current
+        else:
+            adjusted_amps = 0
+    elif over_limit:
+        # Moč omrežja je nad limitom bloka: takoj znižaj za toliko amperov, kolikor
+        # je presežka (brez čakanja kontrolnega intervala).
+        emergency = False
+        steps = math.ceil((inp.grid_power - limit_maintain) / ppa)
+        reduced = current - steps
+        if min_amps <= candidate_amps < reduced:
+            reduced = candidate_amps
+        if reduced >= min_amps:
+            adjusted_amps = reduced
+        elif current > min_amps:
             adjusted_amps = min_amps
         elif settling:
             adjusted_amps = current
