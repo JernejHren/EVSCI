@@ -4,6 +4,19 @@ All notable changes to EVSCI since 0.1.3.
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-11-07
+
+### Fixed
+- Current spike at charge start (up to 14-16 A, 13 kW on an 8 kW limit): the charger power was estimated from the commanded current right after the start, which made the house load negative. The estimate is gone; the current is only changed with real measurements.
+- Oscillation between 6 A and 8 A: the charger power sensor reports a current change only 20-40 s later, so the house load was wrong for that time. While the sensor lags, EVSCI now uses the last reliable house load (grid power minus charger power measured before the change), capped so that the charger cannot draw more than commanded. The sensor counts as caught up when its value matches the commanded power (5 % + 100 W) or grid minus the reference.
+- The charger can report its own default current (for example 15 A) when a session starts. The current is now set after the start button and a current set by the charger above the safe limit is cut immediately.
+- A real grid overload while the sensor lags is no longer ignored (the emergency check ran only when the calculated target was lower than the current).
+
+### Changed
+- The current is decreased **immediately** when the grid power exceeds the block limit (no control interval wait, no buffer), by `ceil(overshoot / W per A)` amps. This applies above limit + buffer too: it no longer drops to the minimum current, which caused oscillation. One change is not counted twice: the grid is evaluated 10 s after the last change. The buffer applies only to increases. Max Power mode still ignores the block limit.
+- A debug line per control cycle (`custom_components.evsci: debug`) with grid, charger power, house load, currents, limits and the decision.
+- README: how the sensor lag is handled and a note to set the real supply voltage (for example 236 V instead of 230 V).
+
 ## [0.3.0] - 2026-10-31
 
 ### Added
