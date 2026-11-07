@@ -184,10 +184,11 @@ def test_ramp_up_does_not_exceed_safe_target_when_already_there():
 
 # ---------------------------------------------------------------- grace period
 
-def test_grace_period_estimates_charger_power_from_commanded_current():
+def test_grace_period_does_not_estimate_charger_power():
+    """Ocena iz ukazanega toka je napihnila moč polnilnika in dala skok na 14-16 A."""
     inp = inputs(now=1000, grace_until=1010, last_commanded_amps=19, charger_power=0)
     assert is_in_grace(inp)
-    assert effective_charger_power(S, inp) == 19 * PPA
+    assert effective_charger_power(S, inp) == 0
 
 
 def test_grace_period_keeps_measured_power_when_higher():
@@ -211,6 +212,7 @@ def _late_sensor(grace_until):
         grid_power=3000 + 19 * PPA,
         last_commanded_amps=19.0,
         grace_until=grace_until,
+        house_load_ref=3000.0,   # zadnja zanesljiva hiša (pred zagonom)
     )
 
 
@@ -218,8 +220,7 @@ def test_grace_period_prevents_false_overload_after_start():
     d = decide(S, _late_sensor(grace_until=1010))
     assert d.in_grace is True
     assert d.emergency is False
-    assert d.target_amps == 19
-    assert d.house_load == pytest.approx(3000)
+    assert d.target_amps == 19        # zadržimo ukazani tok, senzor še zamuja
 
 
 def test_without_grace_period_late_sensor_would_trigger_overload():
@@ -249,7 +250,8 @@ def test_emergency_when_grid_exceeds_block_limit_plus_buffer():
     # Dynamic: limit bloka 11000 + buffer 500; omrežje 14800 W
     d = decide(S, charging(20, mode=MODE_DYNAMIC, house=1000, last_amp_change_time=TOO_SOON))
     assert d.emergency is True
-    assert d.target_amps == 6
+    # Dogovor (7. 11.): ne na minimum (nihanje), ampak za toliko, da pade pod mejo.
+    assert d.target_amps == 14
 
 
 def test_max_power_ignores_block_limit_for_emergency():
@@ -271,9 +273,15 @@ def _dynamic_slightly_over(last_change):
     )
 
 
-def test_non_emergency_decrease_waits_for_control_interval():
-    d = decide(S, _dynamic_slightly_over(TOO_SOON))
+def test_over_limit_decrease_is_immediate_once_grid_reflects_last_change():
+    """Dogovor (7. 11.): znižanje takoj ob preseganju limita, brez čakanja intervala/bufferja."""
+    d = decide(S, _dynamic_slightly_over(TOO_SOON))   # zadnja sprememba pred 10 s
     assert d.emergency is False
+    assert d.target_amps < 20
+
+
+def test_over_limit_decrease_waits_until_grid_reflects_last_change():
+    d = decide(S, _dynamic_slightly_over(996.0))      # zadnja sprememba pred 4 s
     assert d.target_amps == 20
 
 
@@ -645,7 +653,7 @@ def test_block_overload_still_triggers_emergency_with_phase_protection():
                           grid_power=14800.0, last_amp_change_time=TOO_SOON)
     d = decide(P3, inp)
     assert d.emergency is True
-    assert d.target_amps == 6
+    assert 6 < d.target_amps <= 14
 
 
 def _block_mode_phase_limited(last_change):
@@ -724,10 +732,11 @@ def _late_phase_sensor(grace_until):
     return phased(
         (22, 22, 22), mode=MODE_MAX_POWER, is_charging=True, current_amps=19.0,
         charger_power=0.0, last_commanded_amps=19.0, grace_until=grace_until,
+        house_load_ref=22 * 3 * 230 - 19 * PPA,   # zadnja zanesljiva hiša (pred zagonom)
     )
 
 
-def test_grace_period_estimates_charger_current_per_phase():
+def test_grace_period_uses_reference_house_load_per_phase():
     d = decide(P3, _late_phase_sensor(grace_until=1010))
     assert d.in_grace is True
     assert d.emergency is False
@@ -831,21 +840,11 @@ def test_low_tariff_keeps_charging_when_block_gets_cheaper():
     assert decide(S, _charging_in_low_tariff(4, ELAPSED)).target_amps >= 12
 
 
-def test_settle_window_uses_commanded_power_not_lagging_sensor():
-    """Po spremembi toka senzor moči zamuja: moč ocenimo iz ukazanega toka."""
-    inp = inputs(is_charging=True, current_amps=8, last_commanded_amps=8,
-                 charger_power=4200.0, last_amp_change_time=990.0)
-    assert effective_charger_power(S, inp) == 8 * PPA
-    later = inputs(is_charging=True, current_amps=8, last_commanded_amps=8,
-                   charger_power=4200.0, last_amp_change_time=0.0)
-    assert effective_charger_power(S, later) == 4200.0
-
-
 def test_charger_reset_to_higher_current_is_cut_immediately():
     """Polnilnik ob zagonu seje sam skoči na 16 A: takoj nazaj na varno mejo, brez čakanja intervala."""
     inp = inputs(mode=MODE_SCHEDULE, is_charging=True, current_amps=16,
-                 last_commanded_amps=8, grid_power=9000.0, charger_power=0.0,
-                 block_limit_w=8000.0, last_amp_change_time=990.0)
+                 last_commanded_amps=8, grid_power=2100.0, charger_power=0.0,
+                 block_limit_w=8000.0, last_amp_change_time=995.0)
     d = decide(S, inp)
     assert d.target_amps < 16
     assert d.target_amps <= 8
@@ -871,3 +870,149 @@ def test_no_increase_while_sensor_settles_after_change():
                  last_commanded_amps=6, grid_power=2100.0 + 6 * PPA, charger_power=0.0,
                  block_limit_w=8000.0, last_amp_change_time=990.0)
     assert decide(S, inp).target_amps == 6
+
+
+def test_hold_uses_commanded_current_when_readback_lags():
+    """Po zagonu odčitek toka še kaže 0 A: držimo ukazanih 7 A, ne 0."""
+    inp = inputs(mode=MODE_SCHEDULE, is_charging=True, current_amps=0,
+                 last_commanded_amps=7, grid_power=2100.0, charger_power=0.0,
+                 block_limit_w=8000.0, grace_until=1010.0, last_amp_change_time=998.0)
+    assert decide(S, inp).target_amps == 7
+
+
+# ---- ponovitev dejanskega loga (22:31-22:32, Schedule, blok 8000 W, hiša ~2100 W) ----
+
+def _log(**kw):
+    base = dict(mode=MODE_SCHEDULE, block_limit_w=8000.0, now=1000.0, schedule_active=True)
+    base.update(kw)
+    return inputs(**base)
+
+
+def test_log_cold_start_ignores_charger_idle_default_current():
+    """Polnilnik v mirovanju javlja 15 A; zagon mora biti 8 A (limit bloka), ne 15 A."""
+    d = decide(S, _log(is_charging=False, current_amps=15, grid_power=2109.0,
+                       charger_power=0.0, last_commanded_amps=0.0))
+    assert d.target_amps == 8
+
+
+def test_log_charger_keeps_15a_after_start_is_forced_back_to_commanded():
+    """Seja steče, polnilnik še kaže 15 A, senzor moči 0 W: ukaz 8 A, ne 15 A."""
+    d = decide(S, _log(is_charging=True, current_amps=15, grid_power=2100.0,
+                       charger_power=0.0, last_commanded_amps=8.0,
+                       last_amp_change_time=995.0, grace_until=1010.0))
+    assert d.target_amps == 8
+
+
+def test_log_sensor_still_zero_35s_after_start_does_not_drop_to_zero():
+    """Omrežje že kaže 8 A (7741 W), senzor moči polnilnika še 0 W: ostani na 8 A."""
+    d = decide(S, _log(is_charging=True, current_amps=8, grid_power=7741.0,
+                       charger_power=0.0, last_commanded_amps=8.0,
+                       last_amp_change_time=965.0, house_load_ref=2100.0))
+    assert d.target_amps == 8
+
+
+def test_log_after_settle_window_measured_power_is_trusted():
+    d = decide(S, _log(is_charging=True, current_amps=8, grid_power=7741.0,
+                       charger_power=5616.0, last_commanded_amps=8.0,
+                       last_amp_change_time=930.0))
+    assert d.target_amps == 8
+
+
+def test_emergency_at_minimum_current_waits_for_settle_before_stopping():
+    d = decide(S, _log(is_charging=True, current_amps=6, grid_power=12000.0,
+                       charger_power=0.0, last_commanded_amps=6.0,
+                       last_amp_change_time=990.0))
+    assert d.target_amps == 6
+
+
+def test_log_house_load_during_sensor_lag_uses_reference():
+    """20 s po spremembi senzor še kaže 0 W, omrežje že vsebuje 6 A: hiša ostane 2100 W."""
+    d = decide(S, _log(is_charging=True, current_amps=6, grid_power=2100.0 + 6 * PPA,
+                       charger_power=0.0, last_commanded_amps=6.0,
+                       last_amp_change_time=980.0, house_load_ref=2100.0))
+    assert d.house_load == pytest.approx(2100.0)
+    assert d.emergency is False
+
+
+# ---- ponovitev loga 22:54 (zamujena moč polnilnika za 1 A ne sme veljati za veljavno) ----
+
+def test_log_stale_one_amp_sensor_does_not_cut_current():
+    """7 A ukazano, senzor še kaže 4227 W (=6 A): hiša ostane 2441 W, tok ostane 7 A."""
+    d = decide(S, _log(is_charging=True, current_amps=7, grid_power=7423.0,
+                       charger_power=4227.0, last_commanded_amps=7.0,
+                       last_amp_change_time=985.0, house_load_ref=2441.0))
+    # moč polnilnika je omejena z ukazano (7 A x 690 W), hiša zato ~2593 W (ne 3196 W)
+    assert d.house_load == pytest.approx(7423.0 - 7 * PPA)
+    assert d.target_amps == 7
+
+
+def test_log_sensor_caught_up_uses_measured_power():
+    """Senzor kaže ~710 W/A za ukazanih 7 A: veljavna meritev, hiša iz meritve."""
+    d = decide(S, _log(is_charging=True, current_amps=7, grid_power=8200.0,
+                       charger_power=4975.0, last_commanded_amps=7.0,
+                       last_amp_change_time=985.0, house_load_ref=2441.0))
+    assert d.house_load == pytest.approx(8200.0 - 4975.0)
+
+
+# ---- ponovitev loga 23:16 (hišna poraba skoči med zamikom senzorja) ----
+
+def test_log_house_spike_during_settle_is_not_ignored():
+    """10 A ukazano, omrežje 9990 W, senzor še kaže 8 A: nova hiša ~3 kW, tok se mora znižati."""
+    d = decide(S, _log(is_charging=True, current_amps=10, grid_power=9990.0,
+                       charger_power=5659.0, last_commanded_amps=10.0,
+                       last_amp_change_time=975.0, house_load_ref=392.0))
+    assert d.emergency is True
+    assert d.target_amps == 7          # hiša ~3 kW: samo toliko, da pade pod 8000 W
+
+
+def test_grid_above_emergency_limit_cuts_even_if_candidate_says_keep():
+    d = decide(S, _log(is_charging=True, current_amps=10, grid_power=9000.0,
+                       charger_power=7100.0, last_commanded_amps=10.0,
+                       last_amp_change_time=0.0, house_load_ref=0.0, block_limit_w=20000.0 * 0 + 8000.0))
+    assert d.emergency is True
+    assert d.target_amps <= 8
+
+
+def test_emergency_does_not_drop_to_minimum():
+    """Nad limit + buffer ne gremo na minimum (nihanje), ampak za presežek."""
+    d = decide(S, _log(is_charging=True, current_amps=12, grid_power=9000.0,
+                       charger_power=8300.0, last_commanded_amps=12.0,
+                       last_amp_change_time=0.0, house_load_ref=700.0))
+    assert d.emergency is True
+    assert d.target_amps > 6
+
+
+def test_settling_charger_power_never_exceeds_commanded():
+    inp = _log(is_charging=True, current_amps=10, grid_power=9990.0, charger_power=5659.0,
+               last_commanded_amps=10.0, last_amp_change_time=975.0, house_load_ref=392.0)
+    assert effective_charger_power(S, inp) == 10 * PPA
+
+
+# ---- takojšnje znižanje ob preseganju limita (brez bufferja in brez čakanja intervala) ----
+
+def test_over_limit_by_90w_cuts_one_amp_immediately():
+    d = decide(S, _log(is_charging=True, current_amps=8, grid_power=8090.0,
+                       charger_power=5672.0, last_commanded_amps=8.0,
+                       last_amp_change_time=900.0, house_load_ref=2418.0))
+    assert d.target_amps == 7
+
+
+def test_over_limit_cut_is_proportional_to_overshoot():
+    d = decide(S, _log(is_charging=True, current_amps=10, grid_power=8000.0 + 2 * PPA + 10,
+                       charger_power=6900.0, last_commanded_amps=10.0,
+                       last_amp_change_time=900.0, house_load_ref=1000.0))
+    assert d.target_amps <= 7
+
+
+def test_over_limit_not_counted_twice_before_grid_reflects_change():
+    d = decide(S, _log(is_charging=True, current_amps=8, grid_power=8090.0,
+                       charger_power=5672.0, last_commanded_amps=8.0,
+                       last_amp_change_time=996.0, house_load_ref=2418.0))
+    assert d.target_amps == 8
+
+
+def test_at_limit_exactly_keeps_current():
+    d = decide(S, _log(is_charging=True, current_amps=8, grid_power=8000.0,
+                       charger_power=5600.0, last_commanded_amps=8.0,
+                       last_amp_change_time=900.0, house_load_ref=2400.0))
+    assert d.target_amps == 8

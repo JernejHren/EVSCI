@@ -14,7 +14,7 @@ It dynamically adjusts the charging current based on your home's total grid cons
 *   **🤖 Smart Automation:**
     *   **Auto-Start:** Automatically detects when the car is plugged in and switches to your preferred default mode.
     *   **Session Persistence:** Instead of stopping the session when power is low, it pauses charging (0A), allowing it to resume automatically without re-authorization.
-    *   **Full-power start:** Charging starts right away at the highest current the available power allows (no slow ramp-up at start). A short grace period after start prevents false overload detection while the charger's power sensor catches up.
+    *   **Full-power start:** Charging starts right away at the highest current the available power allows (no slow ramp-up at start). While the charger's power sensor lags behind a current change (often 20-40 s), EVSCI uses the last reliable house load instead of the stale charger power, so the current does not jump or oscillate.
     *   **Smooth PV tracking:** In the PV modes, the current is adjusted in 2 A steps during charging so it doesn't jump up and down, but it still decreases immediately in case of overload.
 *   **🔋 Target SoC Limit:** Stops charging when the vehicle battery reaches a specific percentage (requires a vehicle integration in Home Assistant).
 
@@ -91,7 +91,8 @@ To work correctly, EVSCI needs to "see" your house:
     *   With a single-phase charger on a 3-phase house you also select the phase it is connected to. A 3-phase charger loads all three phases equally.
     *   If a phase sensor becomes unavailable or stale, charging pauses until it returns.
     *   The total limit (main fuse, or the tariff block in Dynamic/Schedule/Low Tariff) and PV surplus always use the total power from the Grid Power Sensor.
-*   **Safety Buffer (W):** Power reserve to prevent tripping (recommended: 200-500W).
+*   **Safety Buffer (W):** Power reserve that applies only when **increasing** the current (it must fit below the limit minus the buffer). The current is **decreased as soon as the grid power exceeds the block limit**, by as many amps as the overshoot needs, never straight to the minimum (recommended buffer: 200-500W).
+*   **Voltage:** use the real voltage your charger draws, not the nominal one. Compare the charger power sensor with the current (watts per amp / phases); for example 8 A drawing 5670 W on 3 phases is about 236 V. With 230 V EVSCI underestimates the power and can stay a little above the limit.
 *   **Supply Voltage (V):** Phase voltage used to convert amps to watts (default 230 V).
 *   **Charger Minimum / Maximum Current (A):** The current range your charger supports (defaults 6 A and 32 A).
 *   **Control Interval:** How often the current may be changed during charging (default 30s). *Note: Decreasing current on overload happens immediately for safety.*
