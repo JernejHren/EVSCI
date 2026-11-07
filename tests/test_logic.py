@@ -250,7 +250,8 @@ def test_emergency_when_grid_exceeds_block_limit_plus_buffer():
     # Dynamic: limit bloka 11000 + buffer 500; omrežje 14800 W
     d = decide(S, charging(20, mode=MODE_DYNAMIC, house=1000, last_amp_change_time=TOO_SOON))
     assert d.emergency is True
-    assert d.target_amps == 6
+    # Dogovor (7. 11.): ne na minimum (nihanje), ampak za toliko, da pade pod mejo.
+    assert d.target_amps == 14
 
 
 def test_max_power_ignores_block_limit_for_emergency():
@@ -652,7 +653,7 @@ def test_block_overload_still_triggers_emergency_with_phase_protection():
                           grid_power=14800.0, last_amp_change_time=TOO_SOON)
     d = decide(P3, inp)
     assert d.emergency is True
-    assert d.target_amps == 6
+    assert 6 < d.target_amps <= 14
 
 
 def _block_mode_phase_limited(last_change):
@@ -842,8 +843,8 @@ def test_low_tariff_keeps_charging_when_block_gets_cheaper():
 def test_charger_reset_to_higher_current_is_cut_immediately():
     """Polnilnik ob zagonu seje sam skoči na 16 A: takoj nazaj na varno mejo, brez čakanja intervala."""
     inp = inputs(mode=MODE_SCHEDULE, is_charging=True, current_amps=16,
-                 last_commanded_amps=8, grid_power=9000.0, charger_power=0.0,
-                 block_limit_w=8000.0, last_amp_change_time=990.0)
+                 last_commanded_amps=8, grid_power=2100.0, charger_power=0.0,
+                 block_limit_w=8000.0, last_amp_change_time=995.0)
     d = decide(S, inp)
     assert d.target_amps < 16
     assert d.target_amps <= 8
@@ -961,14 +962,24 @@ def test_log_house_spike_during_settle_is_not_ignored():
                        charger_power=5659.0, last_commanded_amps=10.0,
                        last_amp_change_time=975.0, house_load_ref=392.0))
     assert d.emergency is True
-    assert d.target_amps == 6
+    assert d.target_amps == 7          # hiša ~3 kW: samo toliko, da pade pod 8000 W
 
 
 def test_grid_above_emergency_limit_cuts_even_if_candidate_says_keep():
     d = decide(S, _log(is_charging=True, current_amps=10, grid_power=9000.0,
                        charger_power=7100.0, last_commanded_amps=10.0,
                        last_amp_change_time=0.0, house_load_ref=0.0, block_limit_w=20000.0 * 0 + 8000.0))
-    assert d.target_amps <= 6
+    assert d.emergency is True
+    assert d.target_amps <= 8
+
+
+def test_emergency_does_not_drop_to_minimum():
+    """Nad limit + buffer ne gremo na minimum (nihanje), ampak za presežek."""
+    d = decide(S, _log(is_charging=True, current_amps=12, grid_power=9000.0,
+                       charger_power=8300.0, last_commanded_amps=12.0,
+                       last_amp_change_time=0.0, house_load_ref=700.0))
+    assert d.emergency is True
+    assert d.target_amps > 6
 
 
 def test_settling_charger_power_never_exceeds_commanded():

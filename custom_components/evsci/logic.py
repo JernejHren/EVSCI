@@ -328,15 +328,6 @@ def decide(settings: Settings, inp: Inputs) -> Decision:
     time_since_change = inp.now - inp.last_amp_change_time
     settling = is_settling(settings, inp)
 
-    # Dejanska moč omrežja nad limit + buffer: znižaj takoj, ne glede na izračun kandidata
-    # (ta je lahko zaradi zastarele hišne reference napačen).
-    forced_emergency = (
-        inp.is_charging
-        and current > 0
-        and inp.mode != MODE_MAX_POWER
-        and inp.grid_power > limit_emergency
-    )
-
     over_limit = (
         inp.is_charging
         and current > 0
@@ -345,18 +336,11 @@ def decide(settings: Settings, inp: Inputs) -> Decision:
         and time_since_change >= GRID_REACT_SECONDS
     )
 
-    if forced_emergency:
-        emergency = True
-        if current > min_amps:
-            adjusted_amps = min_amps
-        elif settling:
-            adjusted_amps = current
-        else:
-            adjusted_amps = 0
-    elif over_limit:
+    if over_limit:
         # Moč omrežja je nad limitom bloka: takoj znižaj za toliko amperov, kolikor
-        # je presežka (brez čakanja kontrolnega intervala).
-        emergency = False
+        # je presežka (brez čakanja kontrolnega intervala), tudi nad limit + buffer.
+        # Ne gremo na minimalni tok: to bi povzročilo nihanje.
+        emergency = inp.grid_power > limit_emergency
         steps = math.ceil((inp.grid_power - limit_maintain) / ppa)
         reduced = current - steps
         if min_amps <= candidate_amps < reduced:
