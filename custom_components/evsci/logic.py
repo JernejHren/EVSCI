@@ -158,7 +158,10 @@ def effective_charger_power(settings: Settings, inp: Inputs) -> float:
     polnilnika in dala negativno hišo (skok na 14-16 A).
     """
     if inp.house_load_ref is not None and is_settling(settings, inp):
-        return max(0.0, inp.grid_power - inp.house_load_ref)
+        # Polnilnik ne more vleči več, kot je ukazano: če omrežje kaže več, je to
+        # nova hišna poraba (npr. +2,5 kW), ne moč polnilnika.
+        expected = max(0.0, inp.grid_power - inp.house_load_ref)
+        return min(expected, inp.last_commanded_amps * settings.power_per_amp)
     return inp.charger_power
 
 
@@ -322,7 +325,24 @@ def decide(settings: Settings, inp: Inputs) -> Decision:
     time_since_change = inp.now - inp.last_amp_change_time
     settling = is_settling(settings, inp)
 
-    if candidate_amps < current:
+    # Dejanska moč omrežja nad limit + buffer: znižaj takoj, ne glede na izračun kandidata
+    # (ta je lahko zaradi zastarele hišne reference napačen).
+    forced_emergency = (
+        inp.is_charging
+        and current > 0
+        and inp.mode != MODE_MAX_POWER
+        and inp.grid_power > limit_emergency
+    )
+
+    if forced_emergency:
+        emergency = True
+        if current > min_amps:
+            adjusted_amps = min_amps
+        elif settling:
+            adjusted_amps = current
+        else:
+            adjusted_amps = 0
+    elif candidate_amps < current:
         # ZNIŽEVANJE
         if not inp.is_charging:
             # Polnilnica je izklopljena: takoj uporabi kandidata, da ne vklopimo

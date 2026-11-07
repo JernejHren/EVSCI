@@ -934,7 +934,8 @@ def test_log_stale_one_amp_sensor_does_not_cut_current():
     d = decide(S, _log(is_charging=True, current_amps=7, grid_power=7423.0,
                        charger_power=4227.0, last_commanded_amps=7.0,
                        last_amp_change_time=985.0, house_load_ref=2441.0))
-    assert d.house_load == pytest.approx(2441.0)
+    # moč polnilnika je omejena z ukazano (7 A x 690 W), hiša zato ~2593 W (ne 3196 W)
+    assert d.house_load == pytest.approx(7423.0 - 7 * PPA)
     assert d.target_amps == 7
 
 
@@ -944,3 +945,27 @@ def test_log_sensor_caught_up_uses_measured_power():
                        charger_power=4975.0, last_commanded_amps=7.0,
                        last_amp_change_time=985.0, house_load_ref=2441.0))
     assert d.house_load == pytest.approx(8200.0 - 4975.0)
+
+
+# ---- ponovitev loga 23:16 (hišna poraba skoči med zamikom senzorja) ----
+
+def test_log_house_spike_during_settle_is_not_ignored():
+    """10 A ukazano, omrežje 9990 W, senzor še kaže 8 A: nova hiša ~3 kW, tok se mora znižati."""
+    d = decide(S, _log(is_charging=True, current_amps=10, grid_power=9990.0,
+                       charger_power=5659.0, last_commanded_amps=10.0,
+                       last_amp_change_time=975.0, house_load_ref=392.0))
+    assert d.emergency is True
+    assert d.target_amps == 6
+
+
+def test_grid_above_emergency_limit_cuts_even_if_candidate_says_keep():
+    d = decide(S, _log(is_charging=True, current_amps=10, grid_power=9000.0,
+                       charger_power=7100.0, last_commanded_amps=10.0,
+                       last_amp_change_time=0.0, house_load_ref=0.0, block_limit_w=20000.0 * 0 + 8000.0))
+    assert d.target_amps <= 6
+
+
+def test_settling_charger_power_never_exceeds_commanded():
+    inp = _log(is_charging=True, current_amps=10, grid_power=9990.0, charger_power=5659.0,
+               last_commanded_amps=10.0, last_amp_change_time=975.0, house_load_ref=392.0)
+    assert effective_charger_power(S, inp) == 10 * PPA
